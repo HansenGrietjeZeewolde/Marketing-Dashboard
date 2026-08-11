@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<!--
+  Marketing dashboard - Sprookjeslocaties (Supabase-editie)
+  ============================================================
+  Centrale opslag in Supabase, Auth met rollen (admin/viewer),
+  Row Level Security, vier vestigingen. De sprookjesvormgeving en
+  alle functies uit build 2026-08-04-v15 zijn behouden.
+-->
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marketing dashboard - Sprookjeslocaties</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+<div id="app-content">
+
+<!-- Vestigingsnavigatie + account -->
+<div class="company-bar-wrap">
+  <div class="account-bar">
+    <span class="readonly-badge" id="readOnlyBadge">Alleen-lezen</span>
+    <span id="whoami"></span>
+    <button class="linkbtn" id="usersBtn" data-admin-only>Gebruikersbeheer</button>
+    <button class="linkbtn" id="logoutBtn">Uitloggen</button>
+  </div>
+  <div class="company-bar" id="companyBar"></div>
+  <div class="company-select-mobile"><select id="companySelect"></select></div>
+</div>
+
+<div class="hg-header"><div class="hg-header-inner" style="text-align:center">
+<img src="assets/logo_HG.svg" alt="Hans &amp; Grietje" style="width:220px;max-width:70%;margin:0 auto 6px;display:block;filter:drop-shadow(0 4px 10px rgba(0,0,0,0.25))">
+<h1 id="companyTitle">Marketing dashboard</h1>
+<p class="hg-sub">Sociale-mediaprestaties per vestiging in een overzicht</p>
+<div class="active-company-badge"><span class="badge-dot"></span><span id="companyBadge">Hans &amp; Grietje</span></div>
+</div></div>
+
+<div class="page-wrap">
+<div class="tabbar" id="tabbar">
+<button class="tabbtn" data-tab="overview">Overzicht</button>
+<button class="tabbtn" data-tab="compare">Vergelijken</button>
+<button class="tabbtn" data-tab="posts">Posts</button>
+<button class="tabbtn" data-tab="input" data-admin-only>Data invoeren</button>
+<button class="tabbtn" data-tab="widgets">Widgets</button>
+<button class="tabbtn" data-tab="ai">AI-analyse</button>
+</div>
+<div class="metriccards" id="metriccards"></div>
+
+<div id="tab-overview" class="tabpane card-block">
+<p class="hint">Elk punt is een post, in chronologische volgorde. Zweef eroverheen voor de post, klik voor alle details. De stippellijn is het gemiddelde.</p>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px" id="ovRangeBtns">
+<button class="ov-range-btn" data-range="month">Afgelopen maand</button>
+<button class="ov-range-btn" data-range="3months">Afgelopen 3 maanden</button>
+<button class="ov-range-btn" data-range="halfyear">Afgelopen half jaar</button>
+<button class="ov-range-btn" data-range="year">Afgelopen jaar</button>
+<button class="ov-range-btn active" data-range="all">Alles</button>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px">
+<input type="date" id="ovStart" style="width:auto">
+<span class="hint" style="margin:0">t/m</span>
+<input type="date" id="ovEnd" style="width:auto">
+<button id="ovApplyCustom">Eigen periode toepassen</button>
+</div>
+<details style="margin-bottom:16px">
+<summary style="cursor:pointer;font-weight:700;color:var(--accent);font-size:13px">Zichtbare onderdelen &amp; sortering</summary>
+<div style="margin-top:10px">
+<div id="metricToggles" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px"></div>
+<div style="display:flex;gap:8px;align-items:center">
+<label style="margin:0">Sorteer op</label>
+<select id="ovSort" style="width:auto">
+<option value="default">Standaard volgorde</option>
+<option value="total-desc">Hoogste totaal eerst</option>
+<option value="total-asc">Laagste totaal eerst</option>
+</select>
+</div>
+</div>
+</details>
+<div class="grid2" style="gap:20px;align-items:start">
+<div>
+<p class="section-title" style="text-align:center;color:#2f5233">Facebook</p>
+<div id="fbMetricCharts"></div>
+</div>
+<div>
+<p class="section-title" style="text-align:center;color:#c0392b">Instagram</p>
+<div id="igMetricCharts"></div>
+</div>
+</div>
+<p class="hint" style="margin-top:8px">Totaal volgers per maand</p>
+<div class="chart-wrap" style="height:180px"><canvas id="chartTotalFollowers"></canvas></div>
+<p id="hintTotal" class="hint" style="margin-top:-8px"></p>
+<p class="hint">Nieuwe volgers per maand</p>
+<div class="chart-wrap" style="height:180px"><canvas id="chartNewFollowers"></canvas></div>
+</div>
+
+<div id="tab-compare" class="tabpane card-block">
+<div class="grid2" style="margin-bottom:12px">
+<div>
+<label>Periode A - start</label><input type="date" id="cmpStart1" style="width:100%;margin-bottom:6px">
+<label>Periode A - einde</label><input type="date" id="cmpEnd1" style="width:100%">
+</div>
+<div>
+<label>Periode B - start</label><input type="date" id="cmpStart2" style="width:100%;margin-bottom:6px">
+<label>Periode B - einde</label><input type="date" id="cmpEnd2" style="width:100%">
+</div>
+</div>
+<button id="cmpBtn" style="margin-bottom:16px">Vergelijk periodes</button>
+<div style="display:flex;gap:6px;margin-bottom:16px" id="cmpViewBtns">
+<button class="ov-range-btn active" data-view="table">Tabel</button>
+<button class="ov-range-btn" data-view="chart">Staafdiagram</button>
+<button class="ov-range-btn" data-view="line">Lijndiagram</button>
+</div>
+<div id="cmpResult"></div>
+<div id="cmpChartResult" style="display:none"></div>
+</div>
+
+<div id="tab-posts" class="tabpane card-block">
+<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+<select id="postsPlatformFilter">
+<option value="all">Alle platformen</option>
+<option value="Facebook">Facebook</option>
+<option value="Instagram">Instagram</option>
+</select>
+<select id="postsTypeFilter">
+<option value="all">Reels en Posts</option>
+<option value="Reel">Alleen Reels</option>
+<option value="Post">Alleen Posts</option>
+</select>
+<select id="postsMetric">
+<option value="views">Weergaven</option>
+<option value="reach">Bereik</option>
+<option value="likes">Likes</option>
+<option value="comments">Reacties</option>
+<option value="shares">Doorgestuurd</option>
+<option value="saves">Saves</option>
+<option value="watchDuration">Kijktijd</option>
+<option value="engagement">Engagement</option>
+</select>
+</div>
+<div class="grid2" id="topWorstRow" style="margin-bottom:20px"></div>
+<p class="hint">Klik op een post voor alle details.</p>
+<div class="scroll-x"><table id="postsTable"></table></div>
+<p class="section-title" style="margin-top:24px" id="timelineTitle">Weergaven per post, in tijdlijn</p>
+<p class="hint">Elke post op zijn plek in de tijd. Klik op een punt voor de post.</p>
+<div class="chart-wrap" id="timelineWrap" style="height:420px"><canvas id="postsTimelineChart"></canvas></div>
+</div>
+
+<!-- Postdetail modal -->
+<div id="postModalOverlay" class="modal-overlay">
+<div class="modal-box small">
+<div class="modal-head">
+<p style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:17px;margin:0;color:var(--accent)" id="pmPlatform"></p>
+<button class="modal-close" id="pmClose">&times;</button>
+</div>
+<p class="hint" style="margin:0 0 4px" id="pmDate"></p>
+<p style="font-size:14px;margin:0 0 16px;color:var(--text)" id="pmText"></p>
+<div id="pmStats" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+</div>
+</div>
+
+<!-- Data invoeren (admin) -->
+<div id="tab-input" class="tabpane card-block" data-admin-only>
+<div style="background:var(--card-tint);border:1.5px solid var(--gold);border-radius:var(--radius);padding:12px 16px;margin-bottom:18px">
+<label style="margin-bottom:6px">Data importeren voor vestiging</label>
+<select id="uploadCompany" style="width:100%"></select>
+<p class="hint" style="margin:8px 0 0">Controleer voor de import of de juiste vestiging is geselecteerd. De parser gokt dit niet zelf op basis van de tekst.</p>
+</div>
+
+<p class="section-title">Data uploaden</p>
+<p class="hint" style="margin-bottom:18px">Upload je Excel- of PDF-export. Je krijgt eerst een voorvertoning te zien voordat er iets wordt opgeslagen. De data komt centraal in Supabase.</p>
+<div class="grid2" style="margin-bottom:24px">
+<div style="background:var(--card-tint);border:1.5px dashed var(--border-strong);border-radius:var(--radius);padding:18px;text-align:center">
+<p style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:15px;color:var(--accent);margin:0 0 4px">Excel-bestand (.xlsx)</p>
+<p class="hint" style="margin:0 0 12px">Rechtstreeks uit Hootsuite of Meta</p>
+<input type="file" id="xlsxUpload" accept=".xlsx" style="width:100%;margin-bottom:8px">
+<p id="xlsxStatus" class="hint" style="margin:0;min-height:16px"></p>
+</div>
+<div style="background:var(--card-tint);border:1.5px dashed var(--border-strong);border-radius:var(--radius);padding:18px;text-align:center">
+<p style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:15px;color:var(--accent);margin:0 0 4px">PDF-bestand (.pdf)</p>
+<p class="hint" style="margin:0 0 12px">Positie-gebaseerd uitgelezen</p>
+<input type="file" id="pdfUpload" accept=".pdf" style="width:100%;margin-bottom:8px">
+<p id="pdfStatus" class="hint" style="margin:0;min-height:16px"></p>
+</div>
+</div>
+
+<p class="section-title">Volgers per maand</p>
+<p class="hint">Dit staat niet in de export, dus vul dit maandelijks even zelf aan uit Meta/Instagram Insights. Dit wordt per vestiging opgeslagen.</p>
+<input type="month" id="fsMonth" style="margin-bottom:10px">
+<div class="grid2" style="margin-bottom:8px">
+<div style="background:var(--card-tint);border:1px solid var(--border);border-radius:9px;padding:10px">
+<label style="color:#2f5233">Facebook</label>
+<input type="number" id="fsFbTotal" placeholder="Totaal volgers" style="width:100%;margin-bottom:6px">
+<input type="number" id="fsFbNew" placeholder="Nieuwe volgers" style="width:100%">
+</div>
+<div style="background:var(--card-tint);border:1px solid var(--border);border-radius:9px;padding:10px">
+<label style="color:#c0392b">Instagram</label>
+<input type="number" id="fsIgTotal" placeholder="Totaal volgers" style="width:100%;margin-bottom:6px">
+<input type="number" id="fsIgNew" placeholder="Nieuwe volgers" style="width:100%">
+</div>
+</div>
+<input type="number" id="fsTarget" placeholder="% bereik doelgroep (totaal)" style="width:100%;margin-bottom:8px">
+<button id="addFollowerBtn" style="margin-bottom:20px">Opslaan</button>
+<div id="followerList"></div>
+
+<details style="margin-top:24px">
+<summary style="cursor:pointer;font-family:'Fredoka',sans-serif;font-weight:600;font-size:15px;color:var(--accent)">Back-up en beheer</summary>
+<div style="margin-top:14px">
+<p class="hint">De data staat centraal in Supabase. Exporteer desgewenst een back-up (alle vestigingen) om te archiveren of te delen.</p>
+<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+<button id="exportBtn">Exporteer data (.json)</button>
+</div>
+<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+<button id="undoLastImportBtn" style="background:var(--gold);border-color:var(--gold);color:#3a2a1d" disabled>Laatste import verwijderen</button>
+<button id="clearCompanyBtn" style="background:var(--red);border-color:var(--red)">Alle data van deze vestiging</button>
+</div>
+<p id="undoStatus" class="hint"></p>
+<p class="section-title" style="font-size:15px">Alle posts van deze vestiging beheren</p>
+<div id="managePostsList"></div>
+</div>
+</details>
+</div>
+
+<div id="tab-widgets" class="tabpane card-block">
+<div data-admin-only>
+<p class="section-title">Widget toevoegen</p>
+<p class="hint">Widgets worden per vestiging opgeslagen.</p>
+<div class="grid2" style="margin-bottom:10px">
+<select id="wgMetric">
+<option value="views">Weergaven</option>
+<option value="reach">Bereik</option>
+<option value="likes">Likes</option>
+<option value="comments">Reacties</option>
+<option value="shares">Doorgestuurd</option>
+<option value="saves">Saves</option>
+<option value="watchDuration">Kijktijd</option>
+<option value="engagement">Engagement</option>
+</select>
+<select id="wgPlatform">
+<option value="all">Alle platformen</option>
+<option value="Facebook">Alleen Facebook</option>
+<option value="Instagram">Alleen Instagram</option>
+</select>
+</div>
+<div class="grid2" style="margin-bottom:10px">
+<select id="wgGroup">
+<option value="platform">Per platform</option>
+<option value="month">Per maand</option>
+<option value="week">Per week</option>
+<option value="post">Losse posts (top 10)</option>
+</select>
+<select id="wgType">
+<option value="bar">Staafdiagram</option>
+<option value="pie">Cirkeldiagram</option>
+<option value="line">Lijndiagram</option>
+</select>
+</div>
+<button id="addWidgetBtn" style="margin-bottom:24px">Widget toevoegen</button>
+</div>
+<div id="widgetsGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px"></div>
+</div>
+
+<div id="tab-ai" class="tabpane card-block">
+<label>Focusperiode</label>
+<select id="aiFocus" style="margin-bottom:16px">
+<option value="month">Afgelopen maand</option>
+<option value="3months">Afgelopen 3 maanden</option>
+<option value="halfyear">Afgelopen half jaar</option>
+<option value="year">Heel jaar (sinds juli 2025)</option>
+</select>
+<br>
+<button id="aiGenBtn" style="margin-bottom:16px">Genereer analyse-prompt</button>
+<p class="hint">Kopieer de prompt hieronder en plak hem in Claude (of een andere AI). De prompt gebruikt alleen data van de actieve vestiging.</p>
+<textarea id="aiPromptOut" rows="12" style="width:100%;margin-bottom:8px" readonly></textarea>
+<button id="aiCopyBtn">Kopieer naar klembord</button>
+</div>
+
+<div style="text-align:center;margin-top:12px;opacity:0.9">
+<img src="assets/snoephuisje.png" alt="Hans en Grietje bij het snoephuisje" style="width:180px;max-width:60%">
+<p class="hint" style="margin-top:-8px">Sprookjeslocaties - Marketing dashboard</p>
+<p class="hint" style="font-size:10px;opacity:0.6" id="buildStamp"></p>
+</div>
+</div>
+</div>
+
+<!-- Import-voorvertoning modal -->
+<div id="previewOverlay" class="modal-overlay">
+<div class="modal-box">
+<div class="modal-head">
+<p style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:18px;margin:0;color:var(--accent)">Importvoorvertoning</p>
+<button class="modal-close" id="previewClose">&times;</button>
+</div>
+<div id="previewSummary" style="margin-bottom:14px"></div>
+<div class="scroll-x" style="margin-bottom:14px"><table id="previewTable"></table></div>
+<details style="margin-bottom:16px">
+<summary style="cursor:pointer;font-weight:700;color:var(--accent);font-size:13px">Technische importdiagnostiek</summary>
+<div id="previewDiag" style="margin-top:10px;font-size:12px;color:var(--text2);white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace"></div>
+</details>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<button id="previewCommit">Importeren</button>
+<button id="previewCancel" class="secondary">Annuleren</button>
+<button id="previewDownloadLog" class="secondary">Download foutlog</button>
+</div>
+</div>
+</div>
+
+<!-- Gebruikersbeheer modal (admin) -->
+<div id="usersOverlay" class="modal-overlay">
+<div class="modal-box">
+<div class="modal-head">
+<p style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:18px;margin:0;color:var(--accent)">Gebruikersbeheer</p>
+<button class="modal-close" id="usersClose">&times;</button>
+</div>
+<div style="background:var(--card-tint);border:1px solid var(--border);border-radius:9px;padding:12px;margin-bottom:16px">
+<p class="section-title" style="font-size:14px">Nieuwe gebruiker uitnodigen</p>
+<div class="grid2" style="margin-bottom:8px">
+<input type="text" id="inviteName" placeholder="Naam">
+<input type="email" id="inviteEmail" placeholder="E-mailadres">
+</div>
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+<select id="inviteRole" style="width:auto">
+<option value="viewer">Marketinggebruiker (alleen-lezen)</option>
+<option value="admin">Beheerder</option>
+</select>
+<button id="inviteBtn">Uitnodigen</button>
+</div>
+<p id="inviteMsg" class="hint" style="min-height:16px"></p>
+</div>
+<div class="scroll-x"><table id="usersTable"></table></div>
+</div>
+</div>
+
+<!-- Vestiging-koppeling per gebruiker modal (admin) -->
+<div id="membershipOverlay" class="modal-overlay">
+<div class="modal-box small">
+<div class="modal-head">
+<p style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:17px;margin:0;color:var(--accent)" id="membershipTitle">Vestigingen koppelen</p>
+<button class="modal-close" id="membershipClose">&times;</button>
+</div>
+<div id="membershipBody"></div>
+</div>
+</div>
+
+<!-- Generieke bevestigings-/keuzemodal -->
+<div id="confirmOverlay" class="modal-overlay">
+<div class="modal-box small">
+<div class="modal-head">
+<p style="font-family:'Fredoka',sans-serif;font-weight:600;font-size:17px;margin:0;color:var(--accent)" id="confirmTitle"></p>
+<button class="modal-close" id="confirmX">&times;</button>
+</div>
+<div id="confirmBody" style="font-size:13px;color:var(--text);margin-bottom:16px"></div>
+<div id="confirmBtns" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"></div>
+</div>
+</div>
+
+<!-- Externe libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- App -->
+<script>window.DASHBOARD_BUILD = "2026-08-04-v16-supabase";</script>
+<script src="js/env.js" onerror="void 0"></script>
+<script src="js/config.js"></script>
+<script type="module" src="js/app.js"></script>
+<script type="module" src="js/users-ui.js"></script>
+</body>
+</html>
