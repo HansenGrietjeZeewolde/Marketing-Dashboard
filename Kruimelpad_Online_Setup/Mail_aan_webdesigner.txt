@@ -1,0 +1,36 @@
+Onderwerp: Subdomein toevoegen aan hansengrietje.nl — Kruimelpad-dashboard
+
+Beste [naam webdesigner],
+
+Voor een nieuw intern personeelsdashboard hebben we een subdomein nodig op
+hansengrietje.nl. Het dashboard is bedoeld voor personeel (niet zichtbaar
+voor gasten) en wordt gehost bij Railway. Zou je de onderstaande DNS-regel
+willen toevoegen?
+
+DNS-record om toe te voegen:
+
+  Type:    CNAME
+  Naam:    kruimelpad
+  Waarde:  [PLAK HIER DE CNAME-WAARDE UIT RAILWAY, bijv. xxxxx.up.railway.app]
+  TTL:     3600 (of standaard)
+
+Wat dit doet:
+Het maakt dat https://kruimelpad.hansengrietje.nl wijst naar onze
+dashboard-server bij Railway. De bestaande website blijft volledig
+ongewijzigd — alleen dit subdomein wordt nieuw toegevoegd.
+
+Wat we NIET willen:
+- Geen wijzigingen aan hansengrietje.nl zelf
+- Geen wijzigingen aan www.hansengrietje.nl
+- Geen redirects of pagina's
+
+Als er nog vragen zijn of als je een ander formaat aanlevert dan
+bovenstaande, hoor ik dat graag. Het Railway-platform genereert
+automatisch een HTTPS-certificaat zodra de DNS actief is, dus daar
+hoeft niets voor te gebeuren aan jullie kant.
+
+Alvast bedankt!
+
+Met vriendelijke groet,
+Daan
+Hans & Grietje Pannenkoekenhuis
