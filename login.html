@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inloggen - Sprookjeslocaties dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <img src="assets/heks.png" alt="">
+    <p class="login-title">Sprookjeslocaties</p>
+
+    <!-- Inloggen -->
+    <div id="loginView">
+      <p class="hint">Log in met je persoonlijke account.</p>
+      <input type="email" id="email" placeholder="E-mailadres" autocomplete="username">
+      <input type="password" id="password" placeholder="Wachtwoord" autocomplete="current-password">
+      <button id="loginBtn">Inloggen</button>
+      <p id="loginError" class="login-error"></p>
+      <button class="login-link" id="showForgot">Wachtwoord vergeten?</button>
+    </div>
+
+    <!-- Wachtwoord vergeten -->
+    <div id="forgotView" style="display:none">
+      <p class="hint">Vul je e-mailadres in; je ontvangt een herstellink.</p>
+      <input type="email" id="forgotEmail" placeholder="E-mailadres">
+      <button id="forgotBtn">Stuur herstellink</button>
+      <p id="forgotMsg" class="hint" style="min-height:16px"></p>
+      <button class="login-link" id="backToLogin">Terug naar inloggen</button>
+    </div>
+
+    <!-- Nieuw wachtwoord instellen (na herstellink) -->
+    <div id="resetView" style="display:none">
+      <p class="hint">Kies een nieuw wachtwoord.</p>
+      <input type="password" id="newPassword" placeholder="Nieuw wachtwoord" autocomplete="new-password">
+      <button id="resetBtn">Wachtwoord opslaan</button>
+      <p id="resetMsg" class="login-error"></p>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/env.js" onerror="void 0"></script>
+<script src="js/config.js"></script>
+<script type="module">
+  import { getSupabase, configReady } from './js/supabase-client.js';
+  import { signIn, sendPasswordReset, updatePassword, getSession, basePath } from './js/auth.js';
+
+  const $ = (id) => document.getElementById(id);
+
+  if (!configReady()) {
+    $('loginError').textContent = 'Configuratie ontbreekt: vul js/config.js in.';
+  }
+
+  // Reeds ingelogd? Meteen door naar het dashboard.
+  (async () => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('inactive')) $('loginError').textContent = 'Je account is gedeactiveerd. Neem contact op met een beheerder.';
+
+    // Herstel-flow: Supabase zet een sessie via de hash; toon reset-view.
+    if (params.get('reset') || location.hash.includes('type=recovery')) {
+      showView('reset');
+      return;
+    }
+    const session = await getSession();
+    if (session) location.replace(basePath() + 'index.html');
+  })();
+
+  function showView(name) {
+    $('loginView').style.display = name === 'login' ? 'block' : 'none';
+    $('forgotView').style.display = name === 'forgot' ? 'block' : 'none';
+    $('resetView').style.display = name === 'reset' ? 'block' : 'none';
+  }
+
+  $('loginBtn').addEventListener('click', doLogin);
+  $('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+  async function doLogin() {
+    $('loginError').textContent = '';
+    try {
+      await signIn($('email').value.trim(), $('password').value);
+      location.replace(basePath() + 'index.html');
+    } catch (e) {
+      $('loginError').textContent = translate(e.message);
+    }
+  }
+
+  $('showForgot').addEventListener('click', () => showView('forgot'));
+  $('backToLogin').addEventListener('click', () => showView('login'));
+  $('forgotBtn').addEventListener('click', async () => {
+    $('forgotMsg').textContent = '';
+    try {
+      await sendPasswordReset($('forgotEmail').value.trim());
+      $('forgotMsg').textContent = 'Als dit e-mailadres bestaat, is er een herstellink verstuurd.';
+    } catch (e) { $('forgotMsg').textContent = translate(e.message); }
+  });
+
+  $('resetBtn').addEventListener('click', async () => {
+    $('resetMsg').textContent = '';
+    try {
+      await updatePassword($('newPassword').value);
+      $('resetMsg').style.color = 'var(--forest)';
+      $('resetMsg').textContent = 'Wachtwoord opgeslagen. Je wordt doorgestuurd...';
+      setTimeout(() => location.replace(basePath() + 'index.html'), 1200);
+    } catch (e) { $('resetMsg').textContent = translate(e.message); }
+  });
+
+  function translate(msg) {
+    if (/invalid login credentials/i.test(msg)) return 'Onjuist e-mailadres of wachtwoord.';
+    if (/email not confirmed/i.test(msg)) return 'E-mailadres nog niet bevestigd.';
+    return msg;
+  }
+</script>
+</body>
+</html>
