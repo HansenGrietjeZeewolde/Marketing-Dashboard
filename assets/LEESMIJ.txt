@@ -1,9 +1,0 @@
-Plaats hier je bestaande afbeeldingen uit de v15-build (dezelfde bestandsnamen):
-
-  logo.png          - het Hans & Grietje-logo (koptekst)
-  heks.png          - de heks (login + koptekst)
-  snoephuisje.png   - het snoephuisje (voettekst)
-  achtergrond.png   - de bosachtergrond (paginabackground)
-
-De HTML en CSS verwijzen naar deze bestandsnamen. Zonder deze afbeeldingen
-werkt het dashboard gewoon, alleen ontbreken de illustraties.
