@@ -1,0 +1,13 @@
+{
+  "name": "marketing-dashboard-sprookjeslocaties",
+  "version": "16.0.0",
+  "private": true,
+  "description": "Centraal, beveiligd social-media marketingdashboard voor Hans & Grietje en zusterlocaties (Supabase + Vercel).",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node scripts/build-env.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}
