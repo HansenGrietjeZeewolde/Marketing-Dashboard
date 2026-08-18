@@ -10,6 +10,17 @@ export function normalizeText(v) {
   return String(v === undefined || v === null ? '' : v).replace(/\s+/g, ' ').trim();
 }
 
+/* Kapt een tekst veilig af op maximaal `max` UTF-16-eenheden zonder een
+   emoji (surrogaatpaar) middendoor te knippen. Een half afgekapte emoji
+   levert een "lone surrogate" op — ongeldige JSON — wat bij het importeren
+   de fout "invalid input syntax for type json" veroorzaakte. */
+export function safeTruncate(v, max) {
+  let s = String(v === undefined || v === null ? '' : v).slice(0, max);
+  const last = s.charCodeAt(s.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) s = s.slice(0, -1); // halve emoji weglaten
+  return s;
+}
+
 export function parseNumber(v) {
   if (v === undefined || v === null) return null;
   const s = String(v).trim();

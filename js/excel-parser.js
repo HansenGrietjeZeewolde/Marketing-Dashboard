@@ -7,6 +7,7 @@
 
 import {
   normalizeText,
+  safeTruncate,
   parseNumber,
   parseDuration,
   parseDate,
@@ -49,7 +50,7 @@ export function parseFacebookSheet(rows) {
     const r = rows[i]; if (!r || r[idx.datum] === undefined || r[idx.datum] === '') break;
     const date = parseDate(r[idx.datum]); if (!date) continue;
     out.push({
-      platform: 'Facebook', date, text: normalizeText(r[idx.tekst]).slice(0, 80),
+      platform: 'Facebook', date, text: safeTruncate(normalizeText(r[idx.tekst]), 80),
       comments: parseNumber(r[idx.opm]), engagement: parseNumber(r[idx.eng]), likes: parseNumber(r[idx.likes]),
       shares: parseNumber(r[idx.delen]), views: parseNumber(r[idx.weerg]), reach: null, saves: null,
       watchDuration: null, follows: null, postType: 'post'
@@ -73,7 +74,7 @@ export function parseInstagramSheet(rows) {
     const time = extractTime(r[idx.datum]);
     const watchSec = idx.watch > -1 ? parseDuration(r[idx.watch]) : null;
     out.push({
-      platform: 'Instagram', date, time, text: normalizeText(r[idx.post]).slice(0, 80),
+      platform: 'Instagram', date, time, text: safeTruncate(normalizeText(r[idx.post]), 80),
       comments: parseNumber(r[idx.comments]), engagement: parseNumber(r[idx.eng]), likes: parseNumber(r[idx.likes]),
       reach: parseNumber(r[idx.reach]), shares: parseNumber(r[idx.shares]), views: parseNumber(r[idx.views]),
       saves: parseNumber(r[idx.saves]), watchDuration: watchSec, follows: null,
@@ -115,7 +116,7 @@ export function parseGenericSheet(rows, fullText) {
     const time = extractTime(r[idx.datum]);
     const watchSec = idx.watch > -1 ? parseDuration(r[idx.watch]) : null;
     out.push({
-      platform, date, time, text: normalizeText(r[idx.post]).slice(0, 80),
+      platform, date, time, text: safeTruncate(normalizeText(r[idx.post]), 80),
       comments: parseNumber(r[idx.comments]), engagement: parseNumber(r[idx.eng]), likes: parseNumber(r[idx.likes]),
       reach: parseNumber(r[idx.reach]), shares: parseNumber(r[idx.shares]), views: parseNumber(r[idx.views]),
       saves: parseNumber(r[idx.saves]), watchDuration: watchSec, follows: null,
@@ -197,7 +198,7 @@ export function parseMetaFacebookSheet(rows) {
     else if (titel && !isCode(titel)) caption = titel;
     else caption = oms || titel || '';
     out.push({
-      platform: 'Facebook', date, time, text: caption.slice(0, 80),
+      platform: 'Facebook', date, time, text: safeTruncate(caption, 80),
       comments: idx.opm > -1 ? parseNumber(r[idx.opm]) : null,
       engagement: idx.eng > -1 ? parseNumber(r[idx.eng]) : null,
       likes: idx.reacties > -1 ? parseNumber(r[idx.reacties]) : null,

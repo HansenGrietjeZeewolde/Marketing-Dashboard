@@ -22,10 +22,26 @@ export function fmtDuration(sec) {
 export function isReel(p) { return p.postType ? p.postType === 'reel' : (p.watchDuration || 0) > 0; }
 export function postTypeLabel(p) { return isReel(p) ? 'Reel' : 'Post'; }
 
+/* Kapt een tekst veilig af op maximaal `max` UTF-16-eenheden ZONDER een
+   emoji (of ander teken uit twee code-eenheden) middendoor te knippen.
+   Zonder deze bescherming kon een afgekapte emoji een "lone surrogate"
+   opleveren; dat is ongeldige JSON en zorgde bij het importeren voor de
+   fout "invalid input syntax for type json" in de database. */
+function safeSlice(str, max) {
+  let s = String(str || '').slice(0, max);
+  // Eindigt de afkapping op de eerste helft van een surrogaatpaar
+  // (high surrogate D800–DBFF)? Dan die halve emoji weglaten.
+  const lastCode = s.charCodeAt(s.length - 1);
+  if (lastCode >= 0xd800 && lastCode <= 0xdbff) {
+    s = s.slice(0, -1);
+  }
+  return s;
+}
+
 /* Stabiele dedup-sleutel per vestiging. companyId zit in de sleutel;
    de uniciteit wordt ook door de DB-index (company_id, dedup_key)
    afgedwongen. */
 export function dedupKey(companyId, p) {
-  const prefix = normalizeText(p.text).toLowerCase().slice(0, 24);
+  const prefix = safeSlice(normalizeText(p.text).toLowerCase(), 24);
   return [companyId, p.platform, p.date || '', (p.time || ''), p.postType || '', prefix].join('|');
 }

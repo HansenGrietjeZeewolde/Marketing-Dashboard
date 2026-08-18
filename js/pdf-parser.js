@@ -9,6 +9,7 @@
 
 import {
   normalizeText,
+  safeTruncate,
   parseNumber,
   parseDuration,
   monthIndex,
@@ -346,7 +347,7 @@ export function parsePdf(items, fullText, fileName) {
           .sort((a, b) => a.x - b.x).map((i) => i.text).join(' ').trim();
         if (cap && !dateRe.test(cap)) capParts.push(cap);
       });
-    const caption = normalizeText(capParts.join(' ')).slice(0, 120);
+    const caption = safeTruncate(normalizeText(capParts.join(" ")), 120);
 
     rows.push({
       _rawWatch: rec.watch,
