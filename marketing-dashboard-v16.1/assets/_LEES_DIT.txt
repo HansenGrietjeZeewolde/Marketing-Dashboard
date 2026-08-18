@@ -1,6 +1,0 @@
-LET OP: verwijder je bestaande assets-map NIET.
-
-De echte afbeeldingen (logo_HG.svg, heks.png, snoephuisje.png,
-achtergrond.png) staan al in je GitHub-repo. Deze map in de download is
-leeg en dient alleen om de juiste plek te tonen. Laat de bestaande
-assets-map met afbeeldingen staan zoals hij nu is.
