@@ -1,119 +1,67 @@
-# Upload-instructies — Marketing dashboard (in één keer naar GitHub)
+# Upload in één keer — Marketing dashboard (versie v16.1)
 
-Deze map bevat de **complete, kloppende** bestandsstructuur voor de repo
-`HansenGrietjeZeewolde/Marketing-Dashboard` (de repo die Vercel deployt).
+Deze download bevat de COMPLETE, kloppende repo. Build: 2026-08-18-v16.1-parserfix
 
-Build in deze versie: **2026-08-18-v16.1-parserfix**
+## De allerbelangrijkste eerste stap: KLOPT HET ADRES?
 
----
+Je hebt meerdere Vercel-adressen gehad (si1c-sigma, theta-orcin). Zorg dat je
+de bestanden pusht naar het GitHub-project dat hoort bij het adres dat jij en
+je collega's ECHT gebruiken. Anders upload je naar het verkeerde project en
+verandert er niets op de pagina die je test.
 
-## ⚠️ BELANGRIJK — de map `assets/` (afbeeldingen)
+Twijfel je? Ga in Vercel naar je project → Settings → Git. Daar staat aan welke
+GitHub-repo dit Vercel-project gekoppeld is. Push naar díe repo.
 
-Deze download bevat een LEGE map `assets/`. De vier afbeeldingen
-(`logo_HG.svg`, `heks.png`, `snoephuisje.png`, `achtergrond.png`) zijn
-binaire bestanden die al in je bestaande repo staan. **Verwijder je
-huidige `assets/`-map NIET.** Als je die weggooit, is de vormgeving kapot
-(logo, heks, snoephuisje en achtergrond verdwijnen).
+## Wat je uploadt
 
-Kortom: upload alles hieronder, maar **laat de bestaande `assets/`-map met
-afbeeldingen staan** zoals hij nu is.
-
----
-
-## De juiste mappenstructuur (dit is wat er in de repo moet staan)
+Alle mappen en bestanden hieronder, met de mapstructuur intact:
 
 ```
-/  (hoofdmap van de repo)
-├── index.html
+/  (hoofdmap)
+├── index.html            ← BIJGEWERKT (logo + build-stamp + parserfix)
 ├── login.html
 ├── package.json
 ├── vercel.json
 ├── README.md
-├── css/
-│   └── dashboard.css
-├── js/
-│   ├── app.js
-│   ├── auth.js
-│   ├── charts.js
-│   ├── config.js
-│   ├── env.js
-│   ├── excel-parser.js        ← bijgewerkt (tijd + saves)
-│   ├── helpers.js
-│   ├── imports.js
-│   ├── migration.js
-│   ├── parse-primitives.js
-│   ├── parser-selftest.js     ← NIEUW (optionele regressietest)
-│   ├── pdf-parser.js          ← bijgewerkt (kolomverschuiving opgelost)
-│   ├── permissions.js
-│   ├── repository.js          ← bijgewerkt (jsonb-waarborg)
-│   ├── supabase-client.js
-│   ├── users-admin.js
-│   └── users-ui.js
-├── scripts/
-│   └── build-env.js
-├── api/
-│   └── users/
-│       └── index.js
-├── assets/                    ← LATEN STAAN (afbeeldingen uit je huidige repo)
-│   ├── logo_HG.svg
-│   ├── heks.png
-│   ├── snoephuisje.png
-│   └── achtergrond.png
-└── supabase/
-    ├── schema.sql
-    ├── policies.sql
-    ├── seed.sql
-    └── migratie_facebook_tijd.sql   ← NIEUW (alleen handmatig in Supabase draaien)
+├── css/dashboard.css
+├── js/                   ← alle scripts (pdf/excel/repository bijgewerkt)
+├── scripts/build-env.js
+├── api/users/index.js
+├── assets/
+│   ├── logo_HG.png       ← NIEUW (vervangt de oude logo_HG.svg)
+│   ├── snoephuisje.png   ← NIEUW (transparante achtergrond)
+│   ├── heks.png          ← LATEN STAAN (zit in je huidige repo)
+│   └── achtergrond.png   ← LATEN STAAN (zit in je huidige repo)
+└── supabase/             ← schema/policies/seed + migratie_facebook_tijd
 ```
 
-De belangrijkste oorzaak van de kapotte pagina (lege data, dode knoppen)
-is vrijwel zeker dat de map `js/` eerder "plat" is geworden: dan staan de
-scripts los in de hoofdmap en vindt `index.html` ze niet (`js/app.js` enz.).
-Zorg dus dat de `js/`-bestanden ECHT in een map `js/` staan, en `build-env.js`
-in `scripts/`, en `index.js` in `api/users/`.
+## Over de afbeeldingen (belangrijk)
 
----
+In de download zitten AL: logo_HG.png en snoephuisje.png.
+NIET in de download (staan al in je repo, laten staan): heks.png, achtergrond.png.
 
-## Aanbevolen manier van uploaden: GitHub Desktop
+Gooi je bestaande assets-map dus niet helemaal weg. Kopieer de twee nieuwe
+afbeeldingen erbij, en laat heks.png en achtergrond.png ongemoeid.
 
-GitHub Desktop behoudt de mapstructuur (in tegenstelling tot slepen in de
-browser, waar mappen soms plat worden). Zo doe je het:
+Het oude bestand logo_HG.svg mag je laten staan of weggooien — het wordt niet
+meer gebruikt (index.html verwijst nu naar logo_HG.png).
 
-1. Pak de bestanden uit deze ZIP uit op je computer.
-2. Kopieer alle mappen en bestanden naar je lokale repo-map op schijf
-   (waar GitHub Desktop naar wijst), en laat GitHub de bestaande bestanden
-   overschrijven. **Laat de map `assets/` met afbeeldingen ongemoeid.**
-3. Open GitHub Desktop. In de wijzigingenlijst zie je nu o.a.:
-   - gewijzigd: index.html, js/pdf-parser.js, js/excel-parser.js, js/repository.js
-   - nieuw: js/parser-selftest.js, supabase/migratie_facebook_tijd.sql
-4. Schrijf een commit-omschrijving (bv. "Parserfix v16.1: PDF-kolommen,
-   Facebook-tijd, saves, jsonb-waarborg") en klik **Commit to main**.
-5. Klik **Push origin**.
-6. Vercel deployt automatisch. Wacht tot de deploy **Ready** is.
+## Uploaden met GitHub Desktop (behoudt de mapstructuur)
 
----
+1. Pak deze ZIP uit op je computer.
+2. Kopieer de mappen over je lokale repo-map heen. Laat heks.png en
+   achtergrond.png in assets/ staan.
+3. GitHub Desktop toont de wijzigingen. Schrijf een omschrijving
+   (bv. "v16.1: parserfix, logo, snoephuisje transparant") → Commit to main.
+4. Push origin. Vercel deployt automatisch.
 
 ## Na het deployen: controleren
 
-1. Open je Vercel-URL (bv. https://marketing-dashboard-si1c-sigma.vercel.app).
-2. Doe een **harde ververs** (Cmd+Shift+R). De browser cachet js-bestanden.
-3. Scroll naar onderen. Er moet staan:
-   **Dashboard build: 2026-08-18-v16.1-parserfix**
-   Zie je nog de oude stamp, dan draait er nog een gecachte versie → nogmaals
-   hard verversen.
-4. Log in, controleer of de data laadt en de navigatieknoppen werken.
-5. Test een import (Instagram-PDF en Facebook-Excel) en controleer in de
-   voorvertoning: reacties, follows, saves, kijktijd en de Facebook-tijd.
-
-Werkt de pagina daarna nog steeds niet (lege data, dode knoppen), open dan
-de browserconsole (rechtsklik → Inspecteren → tabblad Console) en stuur de
-rode foutregel door. Dat wijst exact aan wat er nog mist.
-
----
-
-## Het bestand supabase/migratie_facebook_tijd.sql
-
-Dit hoeft NIET online om het dashboard te laten werken. Je draait het
-handmatig in de Supabase SQL Editor, en alleen als je oude Facebook-posts
-(die zonder tijd zijn geïmporteerd) wilt opschonen vóór je opnieuw importeert.
-Zie de uitleg boven in dat bestand.
+1. Open je Vercel-URL en doe een HARDE ververs: Cmd+Shift+R.
+2. Scroll naar onderen. Er moet staan: Dashboard build: 2026-08-18-v16.1-parserfix
+   Staat er iets anders? Dan draait nog de oude versie → nogmaals hard verversen,
+   of je pushte naar het verkeerde project (zie bovenaan).
+3. Logo bovenin en snoephuisje onderin moeten nu goed staan.
+4. Test een import. Werkt de importfout ("invalid input syntax for type json")
+   nog steeds? Open dan de browserconsole (rechtsklik → Inspecteren → Console),
+   importeer opnieuw, en stuur een screenshot van de rode foutregel.

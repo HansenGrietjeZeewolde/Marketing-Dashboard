@@ -1,6 +1,12 @@
-LET OP: verwijder je bestaande assets-map NIET.
+LET OP — twee afbeeldingen moet je zelf behouden.
 
-De echte afbeeldingen (logo_HG.svg, heks.png, snoephuisje.png,
-achtergrond.png) staan al in je GitHub-repo. Deze map in de download is
-leeg en dient alleen om de juiste plek te tonen. Laat de bestaande
-assets-map met afbeeldingen staan zoals hij nu is.
+In deze download zitten AL:
+  ✓ logo_HG.png       (nieuw — vervangt de oude logo_HG.svg)
+  ✓ snoephuisje.png   (nieuw — nu met transparante achtergrond)
+
+Deze twee zitten NIET in de download en staan al in je repo — LAAT ZE STAAN:
+  • heks.png          (heks op de loginpagina)
+  • achtergrond.png   (perkament-achtergrond van het dashboard)
+
+Gooi je bestaande assets-map dus NIET helemaal weg. Kopieer de twee nieuwe
+bestanden erbij/eroverheen, en laat heks.png en achtergrond.png ongemoeid.
