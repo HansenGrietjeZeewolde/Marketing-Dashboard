@@ -1,6 +1,6 @@
 // Scherm 1 — managementoverzicht (alle locaties of één locatie)
 import { LOCATIONS, loc, selectPosts, totals, followers, shares, delta, comparable, weeklyReach, prevMonth, monthName, byReach, dayLabel, timeLabel, TYPE_LABEL, PLATFORM_LABEL, autoInsights } from '../data.js';
-import { esc, nl, pctTxt, short, href, deltaBadge, shareBar, singleBar, aiBlock } from '../ui.js';
+import { esc, nl, pctTxt, short, href, deltaBadge, shareBar, singleBar, aiBlock, emptyMonth } from '../ui.js';
 
 function kpiCards({ cur, cmp, fol, folPrev, posts, location, state }) {
   // cmp = { c, p, partial }: dezelfde accounts in deze en vorige maand
@@ -121,9 +121,7 @@ export function renderOverzicht(ctx) {
   const [cc, pc] = comparable(cur, prev);
   const cmp = { c: totals(cc), p: totals(pc), partial: cc.length > 0 && cc.length < cur.length };
 
-  if (!cur.length) {
-    return `<p class="empty">Geen posts gevonden voor deze selectie. Kies een andere maand, locatie of platform.</p>`;
-  }
+  if (!cur.length) return emptyMonth({ month: state.month, platform: state.platform, anyData: data.posts.length > 0 });
 
   if (location === 'alle') {
     return `

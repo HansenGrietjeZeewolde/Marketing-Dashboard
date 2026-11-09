@@ -100,6 +100,18 @@ export function postItem(p, rank, low, showLoc) {
     </div></li>`;
 }
 
+// Melding voor een maand of selectie zonder posts
+export function emptyMonth({ month, platform, anyData }) {
+  const which = platform === 'samen' ? '' : ` voor ${PLATFORM_LABEL[platform]}`;
+  return `<section class="card" style="align-items:flex-start">
+    <h2>Nog geen gegevens${which} in ${esc(monthLabel(month).toLowerCase())}</h2>
+    <p>${anyData
+      ? 'Voor deze maand zijn (nog) geen posts binnengekomen. Zodra de Meta-koppeling draait, haalt het systeem elke nacht de nieuwe cijfers op; bij de eerste keer ophalen komen ook de laatste 90 dagen mee.'
+      : 'Er staan nog geen cijfers in het dashboard. Koppel het Meta-account via Beheer; daarna komen de cijfers elke nacht vanzelf binnen.'}</p>
+    <p class="small muted">Gebruik het pijltje bij Maand om naar een maand met cijfers te gaan.</p>
+  </section>`;
+}
+
 export function aiBlock({ title, bullets, generated, canGenerate, copyId }) {
   return `<section class="card ai" aria-labelledby="ai-title">
     <div class="head"><div class="t">${star}<h2 id="ai-title">${title}</h2>

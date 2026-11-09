@@ -1,6 +1,6 @@
 // Scherm 2 — analyse voor marketing
 import { LOCATIONS, loc, selectPosts, totals, followers, topAndBottom, byType, bySlot, weeklyReach, prevMonth, monthName, dayLabel, timeLabel, TYPE_LABEL, PLATFORM_LABEL, autoInsights } from '../data.js';
-import { esc, nl, pctTxt, short, href, postItem, aiBlock, singleBar } from '../ui.js';
+import { esc, nl, pctTxt, short, href, postItem, aiBlock, singleBar, emptyMonth } from '../ui.js';
 
 function topLists(rows, showLoc) {
   const { top, bottom } = topAndBottom(rows, 3);
@@ -148,7 +148,7 @@ export function renderAnalyse(ctx) {
         <a class="linkbtn" href="${href('overzicht', location, state)}">← Overzicht ${esc(l.short)}</a></div>`
     : `<p class="small muted">Alle locaties · ${state.platform === 'samen' ? 'Facebook en Instagram' : PLATFORM_LABEL[state.platform]} · ${monthName(state.month)} · ${cur.length} posts · gerangschikt op bereik</p>`;
 
-  if (!cur.length) return `${title}<p class="empty">Geen posts gevonden voor deze selectie.</p>${eventsBlock(data, sel, profile)}`;
+  if (!cur.length) return `${title}${emptyMonth({ month: state.month, platform: state.platform, anyData: data.posts.length > 0 })}${eventsBlock(data, sel, profile)}`;
 
   return `${title}
     ${topLists(cur, location === 'alle')}

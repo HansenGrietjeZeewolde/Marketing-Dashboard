@@ -3,7 +3,7 @@
 // Adressen:  #/overzicht/alle?m=2026-07&p=samen   #/analyse/hg   #/beheer
 // =====================================================================
 import { auth, db, invoke } from './api.js';
-import { availableMonths } from './data.js';
+import { availableMonths, prevMonth, nextMonth } from './data.js';
 import { header, filters } from './ui.js';
 import { renderLogin } from './views/login.js';
 import { renderOverzicht } from './views/overzicht.js';
@@ -49,8 +49,16 @@ function parseRoute() {
 function render() {
   if (!profile) return;
   const { view: rawView, place, query } = parseRoute();
-  const months = availableMonths(data.posts);
-  const latest = months[months.length - 1] || new Date().toISOString().slice(0, 7);
+  // Bladeren kan van 12 maanden terug (of de eerste maand met data) tot en met
+  // de huidige maand, ook als er voor een maand nog niets binnen is.
+  const withData = availableMonths(data.posts);
+  const thisMonth = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam', year: 'numeric', month: '2-digit' }).format(new Date()).slice(0, 7);
+  let first = thisMonth;
+  for (let i = 0; i < 11; i++) first = prevMonth(first);
+  if (withData[0] && withData[0] < first) first = withData[0];
+  const months = [];
+  for (let m = first; m <= thisMonth; m = nextMonth(m)) months.push(m);
+  const latest = withData[withData.length - 1] || thisMonth;
   const state = {
     month: months.includes(query.get('m')) ? query.get('m') : latest,
     platform: ['samen', 'facebook', 'instagram'].includes(query.get('p')) ? query.get('p') : 'samen'
