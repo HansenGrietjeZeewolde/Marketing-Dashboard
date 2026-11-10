@@ -112,9 +112,14 @@ export function monthKpis(posts, accountMonthly, { location = 'alle', month, pla
     // Alleen accountcijfers gebruiken als Meta de hele maand (tot nu toe) geleverd heeft.
     const acc = accountMonthly.find((r) => r.location_id === l.id && r.platform === pl && r.month.slice(0, 7) === month && r.complete !== false);
     const part = { location_id: l.id, platform: pl, posts: ps.length, src: {} };
+    // Meta levert sommige accountcijfers pas vanaf een bepaalde datum en geeft daarvoor 0
+    // (bijv. Facebook-bereik vóór april 2025). Een 0 of leeg cijfer telt als 'niet geleverd'.
+    // Bereik en interacties horen bij elkaar (engagement rate): allebei van het account, of allebei van de posts.
+    const ok = (f) => acc && acc[f] !== null && acc[f] !== undefined && Number(acc[f]) > 0;
+    const use = { views: ok('views'), reach: ok('reach_daily_sum') && ok('total_interactions') };
+    use.interactions = use.reach;
     for (const [m, f] of Object.entries(ACCOUNT_FIELD)) {
-      const v = acc ? acc[f] : null;
-      if (v !== null && v !== undefined) { part[m] = Number(v); part.src[m] = 'account'; }
+      if (use[m]) { part[m] = Number(acc[f]); part.src[m] = 'account'; }
       else { part[m] = sum(ps, m); part.src[m] = 'posts'; }
     }
     part.hasData = ps.length > 0 || Object.values(part.src).includes('account');
