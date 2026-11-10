@@ -2,6 +2,14 @@
 import { LOCATIONS, loc, selectPosts, followers, delta, monthKpis, comparableKpis, BASIS_LABEL, weeklyReach, prevMonth, monthName, byReach, dayLabel, timeLabel, TYPE_LABEL, PLATFORM_LABEL, autoInsights } from '../data.js';
 import { esc, nl, pctTxt, short, href, deltaBadge, shareBar, singleBar, aiBlock, emptyMonth } from '../ui.js';
 
+// Onderschrift bij volgers: nieuwe volgers, of uitleg als het getal teruggerekend of onvolledig is.
+function folSub(fol) {
+  const parts = [fol.gained === null ? 'Totaal aan het eind van de maand' : `${nl(fol.gained)} nieuwe volgers deze maand`];
+  if (fol.total !== null && fol.missingPlatforms.length) parts.push(`zonder ${fol.missingPlatforms.map((p) => PLATFORM_LABEL[p]).join(' en ')} (nog geen stand)`);
+  else if (fol.estimated) parts.push('teruggerekend vanaf vandaag');
+  return parts.join(' · ');
+}
+
 function kpiCards({ k, cmp, fol, folPrev, all, location, state }) {
   // k = kerncijfers deze maand; cmp = { c, p, partial, any }: dezelfde accounts in beide maanden
   const lbl = cmp.partial ? 'vs vorige maand (deels)' : 'vs vorige maand';
@@ -22,8 +30,8 @@ function kpiCards({ k, cmp, fol, folPrev, all, location, state }) {
   return `<section aria-label="Kerncijfers" style="display:flex;flex-direction:column;gap:8px">
     <div class="kpis">
     ${card('Volgers', fol.total === null ? '—' : nl(fol.total),
-      fol.gained === null ? 'Totaal aan het eind van de maand' : `${nl(fol.gained)} nieuwe volgers deze maand`,
-      folPart, deltaBadge(delta(fol.total, folPrev.total)))}
+      folSub(fol),
+      folPart, deltaBadge(fol.missingPlatforms.join() === folPrev.missingPlatforms.join() ? delta(fol.total, folPrev.total) : null))}
     ${card('Weergaven', nl(k.views), `${k.posts} posts in ${monthName(state.month)}`, shareOrOwn('views', 'Weergaven per locatie'),
       deltaBadge(d('views'), lbl))}
     ${card('Bereik', nl(k.reach), reachSub, shareOrOwn('reach', 'Bereik per locatie'),
@@ -46,7 +54,11 @@ function locationCards(data, state) {
     const badges = cmp.any
       ? `<div class="tabs">${deltaBadge(delta(cmp.c.reach, cmp.p.reach), 'bereik')}${deltaBadge(delta(cmp.c.interactions, cmp.p.interactions), 'interacties')}<span class="small muted" style="align-self:center">vs vorige maand${cmp.partial ? ' (deels)' : ''}</span></div>`
       : '<span class="badge">vs vorige maand: nog geen data</span>';
-    const stats = `<div class="stats3">
+    const f = followers(data.accountMonthly, { location: l.id, month: state.month, platform: state.platform });
+    const folTxt = f.total === null ? '—' : nl(f.total);
+    const folNote = f.total !== null && f.missingPlatforms.length ? ` title="Zonder ${f.missingPlatforms.map((p) => PLATFORM_LABEL[p]).join(' en ')}: daarvan is voor deze maand nog geen stand"` : '';
+    const stats = `<div class="stats4 ${hero ? '' : 'two'}">
+      <div${folNote}><p class="l">Volgers${f.total !== null && f.missingPlatforms.length ? '*' : ''}</p><p class="v">${folTxt}</p></div>
       <div><p class="l">Weergaven</p><p class="v">${nl(t.views)}</p></div>
       <div><p class="l">Bereik</p><p class="v">${nl(t.reach)}</p></div>
       <div><p class="l">${hero ? 'Engagement rate' : 'Eng. rate'}</p><p class="v">${pctTxt(t.er, 2)}</p></div></div>`;
@@ -118,7 +130,7 @@ export function renderOverzicht(ctx) {
   const k = kpi(location, state.month);
   const all = kpi('alle', state.month);
   const cmp = comparableKpis(k, kpi(location, prevMonth(state.month)));
-  const dataForCards = { kpi, k, allowed: data.allowed };
+  const dataForCards = { kpi, k, allowed: data.allowed, accountMonthly: data.accountMonthly };
 
   if (!k.keys.length) return emptyMonth({ month: state.month, platform: state.platform, anyData: data.posts.length > 0 });
 

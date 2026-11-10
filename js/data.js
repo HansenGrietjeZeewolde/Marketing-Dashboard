@@ -70,11 +70,20 @@ export function followers(accountMonthly, { location = 'alle', month, platform =
   const rows = accountMonthly.filter((r) =>
     (location === 'alle' || r.location_id === location) && r.month.slice(0, 7) === month &&
     (platform === 'samen' || r.platform === platform));
-  const withTotal = rows.filter((r) => r.followers_end !== null);
+  const withTotal = rows.filter((r) => r.followers_end !== null && r.followers_end !== undefined);
+  // Welke accounts horen bij deze selectie (ongeacht de maand)? Ontbreekt de stand van
+  // een van die accounts in deze maand, dan is het totaal maar een deel.
+  const key = (r) => `${r.location_id}|${r.platform}`;
+  const expected = new Set(accountMonthly.filter((r) =>
+    (location === 'alle' || r.location_id === location) && (platform === 'samen' || r.platform === platform)).map(key));
+  const have = new Set(withTotal.map(key));
+  const missing = [...expected].filter((k) => !have.has(k));
   // Maandsommen (nieuwe volgers, bereik bij volgers) alleen als elke rij een complete maand is.
   const full = rows.length > 0 && rows.every((r) => r.complete !== false);
   return {
     total: withTotal.length ? sum(withTotal, 'followers_end') : null,
+    estimated: withTotal.some((r) => r.followers_estimated),
+    missingPlatforms: [...new Set(missing.map((k) => k.split('|')[1]))],
     gained: full && has(rows, 'follows') ? sum(rows, 'follows') : null,
     lost: full && has(rows, 'unfollows') ? sum(rows, 'unfollows') : null,
     reachFollowers: full && has(rows, 'reach_followers') ? sum(rows, 'reach_followers') : null,

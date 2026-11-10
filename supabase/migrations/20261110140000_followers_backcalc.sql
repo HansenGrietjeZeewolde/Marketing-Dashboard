@@ -1,0 +1,3 @@
+-- Zie Supabase-migratie account_monthly_followers_backcalc (al toegepast):
+-- account_monthly krijgt followers_end teruggerekend voor eerdere maanden
+-- (stand van vandaag min nieuwe plus vertrokken volgers daarna) en followers_estimated.
