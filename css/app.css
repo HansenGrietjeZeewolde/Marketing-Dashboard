@@ -138,3 +138,4 @@ footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line)
 .login .card { width: 100%; max-width: 420px; padding: 32px; gap: 18px; box-shadow: 0 20px 50px rgba(58,42,29,.12); }
 .login img { height: 90px; width: auto; align-self: center; }
 .loading { padding: 80px 0; text-align: center; color: var(--muted); }
+.seg span[aria-disabled="true"] { min-height: 40px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: 9px; color: var(--muted); font-weight: 700; font-size: 14px; opacity: .6; cursor: not-allowed; }

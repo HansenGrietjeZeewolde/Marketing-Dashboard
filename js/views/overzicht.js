@@ -1,52 +1,50 @@
 // Scherm 1 — managementoverzicht (alle locaties of één locatie)
-import { LOCATIONS, loc, selectPosts, totals, followers, shares, delta, comparable, weeklyReach, prevMonth, monthName, byReach, dayLabel, timeLabel, TYPE_LABEL, PLATFORM_LABEL, autoInsights } from '../data.js';
+import { LOCATIONS, loc, selectPosts, followers, delta, monthKpis, comparableKpis, BASIS_LABEL, weeklyReach, prevMonth, monthName, byReach, dayLabel, timeLabel, TYPE_LABEL, PLATFORM_LABEL, autoInsights } from '../data.js';
 import { esc, nl, pctTxt, short, href, deltaBadge, shareBar, singleBar, aiBlock, emptyMonth } from '../ui.js';
 
-function kpiCards({ cur, cmp, fol, folPrev, posts, location, state }) {
-  // cmp = { c, p, partial }: dezelfde accounts in deze en vorige maand
-  const prev = cmp.p;
+function kpiCards({ k, cmp, fol, folPrev, all, location, state }) {
+  // k = kerncijfers deze maand; cmp = { c, p, partial, any }: dezelfde accounts in beide maanden
   const lbl = cmp.partial ? 'vs vorige maand (deels)' : 'vs vorige maand';
-  const allPosts = posts;
   const card = (title, value, sub, extra, badge) => `<div class="card kpi">
       <p class="t">${title}</p><p class="v">${value}</p><p class="small muted">${sub}</p>${extra}${badge}</div>`;
   const shareOrOwn = (metric, label) => {
-    if (location === 'alle') return `<div style="margin-top:10px">${shareBar(shares(allPosts, metric), label)}</div>`;
-    const tot = totals(state.monthAll)[metric];
-    const own = totals(allPosts)[metric];
-    const s = tot ? own / tot : 0;
+    if (location === 'alle') return `<div style="margin-top:10px">${shareBar(k.byLocation(metric), label)}</div>`;
+    const s = all[metric] ? k[metric] / all[metric] : 0;
     return `<div style="margin-top:10px">${singleBar(s, loc(location).color, `${Math.round(s * 100)} procent van alle locaties`)}<p class="tiny muted" style="margin-top:6px">${Math.round(s * 100)}% van alle locaties</p></div>`;
   };
-  const hasPrev = prev.posts > 0;
+  const d = (m) => cmp.any ? delta(cmp.c[m], cmp.p[m]) : null;
   const folPart = fol.total === null
     ? `<div style="margin-top:10px"><div class="hatch" aria-hidden="true"></div><p class="tiny muted" style="margin-top:6px">Komt binnen via de Meta-koppeling</p></div>`
     : location === 'alle'
       ? `<div style="margin-top:10px">${shareBar(LOCATIONS.map((l) => ({ ...l, share: fol.total ? (fol.byLocation[l.id] || 0) / fol.total : 0 })), 'Volgers per locatie')}</div>`
       : '';
-  return `<section aria-label="Kerncijfers" class="kpis">
+  const reachSub = k.basis === 'account' ? 'Dagelijks bereik van het account, opgeteld' : k.basis === 'posts' ? 'Opgeteld bereik per post' : 'Account waar beschikbaar, anders per post';
+  return `<section aria-label="Kerncijfers" style="display:flex;flex-direction:column;gap:8px">
+    <div class="kpis">
     ${card('Volgers', fol.total === null ? '—' : nl(fol.total),
       fol.gained === null ? 'Totaal aan het eind van de maand' : `${nl(fol.gained)} nieuwe volgers deze maand`,
       folPart, deltaBadge(delta(fol.total, folPrev.total)))}
-    ${card('Weergaven', nl(cur.views), `${cur.posts} posts in ${monthName(state.month)}`, shareOrOwn('views', 'Weergaven per locatie'),
-      deltaBadge(hasPrev ? delta(cmp.c.views, prev.views) : null, lbl))}
-    ${card('Bereik', nl(cur.reach), 'Opgeteld bereik per post', shareOrOwn('reach', 'Bereik per locatie'),
-      deltaBadge(hasPrev ? delta(cmp.c.reach, prev.reach) : null, lbl))}
-    ${card('Engagement rate', pctTxt(cur.er, 2), `${nl(cur.interactions)} interacties ÷ bereik`,
-      location === 'alle' ? `<div style="margin-top:10px">${shareBar(shares(allPosts, 'interactions'), 'Interacties per locatie')}</div>`
-        : `<p class="tiny muted">Gemiddelde alle locaties: ${pctTxt(totals(state.monthAll).er, 2)}</p>`,
-      deltaBadge(hasPrev && prev.er !== null && cmp.c.er !== null ? cmp.c.er - prev.er : null, lbl, 'pt'))}
+    ${card('Weergaven', nl(k.views), `${k.posts} posts in ${monthName(state.month)}`, shareOrOwn('views', 'Weergaven per locatie'),
+      deltaBadge(d('views'), lbl))}
+    ${card('Bereik', nl(k.reach), reachSub, shareOrOwn('reach', 'Bereik per locatie'),
+      deltaBadge(d('reach'), lbl))}
+    ${card('Engagement rate', pctTxt(k.er, 2), `${nl(k.interactions)} interacties ÷ bereik`,
+      location === 'alle' ? `<div style="margin-top:10px">${shareBar(k.byLocation('interactions'), 'Interacties per locatie')}</div>`
+        : `<p class="tiny muted">Gemiddelde alle locaties: ${pctTxt(all.er, 2)}</p>`,
+      deltaBadge(cmp.any && cmp.c.er !== null && cmp.p.er !== null ? cmp.c.er - cmp.p.er : null, lbl, 'pt'))}
+    </div>
+    <p class="tiny muted"><b>Basis:</b> ${esc(BASIS_LABEL[k.basis])}${k.basis === 'posts' ? ' (zodra Meta gekoppeld is: alles wat in deze kalendermaand bekeken is)' : ''}.</p>
   </section>`;
 }
 
 function locationCards(data, state) {
-  const share = shares(data.cur, 'reach');
   const card = (l, hero) => {
-    const rows = data.cur.filter((p) => p.location_id === l.id);
-    const t = totals(rows);
-    const [rc, rp] = comparable(rows, data.prev.filter((p) => p.location_id === l.id));
-    const tc = totals(rc), tp = totals(rp);
-    const s = share.find((x) => x.id === l.id).share;
-    const badges = tp.posts
-      ? `<div class="tabs">${deltaBadge(delta(tc.reach, tp.reach), 'bereik')}${deltaBadge(delta(tc.interactions, tp.interactions), 'interacties')}<span class="small muted" style="align-self:center">vs vorige maand${rc.length < rows.length ? ' (deels)' : ''}</span></div>`
+    const t = data.kpi(l.id, state.month);
+    const tp = data.kpi(l.id, prevMonth(state.month));
+    const cmp = comparableKpis(t, tp);
+    const s = data.k.byLocation('reach').find((x) => x.id === l.id).share;
+    const badges = cmp.any
+      ? `<div class="tabs">${deltaBadge(delta(cmp.c.reach, cmp.p.reach), 'bereik')}${deltaBadge(delta(cmp.c.interactions, cmp.p.interactions), 'interacties')}<span class="small muted" style="align-self:center">vs vorige maand${cmp.partial ? ' (deels)' : ''}</span></div>`
       : '<span class="badge">vs vorige maand: nog geen data</span>';
     const stats = `<div class="stats3">
       <div><p class="l">Weergaven</p><p class="v">${nl(t.views)}</p></div>
@@ -112,21 +110,22 @@ export function renderOverzicht(ctx) {
   const sel = { location, month: state.month, platform: state.platform };
   const cur = selectPosts(data.posts, sel);
   const prev = selectPosts(data.posts, { ...sel, month: prevMonth(state.month) });
-  state.monthAll = selectPosts(data.posts, { ...sel, location: 'alle' });
   const fol = followers(data.accountMonthly, sel);
   const folPrev = followers(data.accountMonthly, { ...sel, month: prevMonth(state.month) });
   const summary = data.summaries.find((s) => s.month.slice(0, 7) === state.month && s.location_key === location && s.screen === 'overzicht');
   const bullets = summary ? summary.bullets : autoInsights({ posts: cur, prevPosts: prev, location, screen: 'overzicht' });
-  const dataForCards = { cur, prev, allowed: data.allowed };
-  const [cc, pc] = comparable(cur, prev);
-  const cmp = { c: totals(cc), p: totals(pc), partial: cc.length > 0 && cc.length < cur.length };
+  const kpi = (l, m) => monthKpis(data.posts, data.accountMonthly, { ...sel, location: l, month: m });
+  const k = kpi(location, state.month);
+  const all = kpi('alle', state.month);
+  const cmp = comparableKpis(k, kpi(location, prevMonth(state.month)));
+  const dataForCards = { kpi, k, allowed: data.allowed };
 
-  if (!cur.length) return emptyMonth({ month: state.month, platform: state.platform, anyData: data.posts.length > 0 });
+  if (!k.keys.length) return emptyMonth({ month: state.month, platform: state.platform, anyData: data.posts.length > 0 });
 
   if (location === 'alle') {
     return `
       <div class="legend"><b style="color:var(--muted)">Aandeel per locatie in de balken:</b>${LOCATIONS.map((l) => `<span><span class="dot" style="background:${l.color}" aria-hidden="true"></span>${esc(l.short)}</span>`).join('')}</div>
-      ${kpiCards({ cur: totals(cur), cmp, fol, folPrev, posts: cur, location, state })}
+      ${kpiCards({ k, cmp, fol, folPrev, all, location, state })}
       ${locationCards(dataForCards, state)}
       <div class="row">
         <div class="wide" style="display:flex">${aiBlock({ title: 'Wat viel op', bullets, generated: !!summary, canGenerate: profile.role !== 'management', copyId: 'ai-list' })}</div>
@@ -141,7 +140,7 @@ export function renderOverzicht(ctx) {
         <div><h2 class="h-loc">${esc(l.name)}</h2><p class="small muted">${[l.sub, state.platform === 'samen' ? 'Facebook en Instagram' : PLATFORM_LABEL[state.platform], monthName(state.month), `${cur.length} posts`].filter(Boolean).map(esc).join(' · ')}</p></div></div>
       <a class="linkbtn" href="${href('overzicht', 'alle', state)}">← Alle locaties</a>
     </div>
-    ${kpiCards({ cur: totals(cur), cmp, fol, folPrev, posts: cur, location, state })}
+    ${kpiCards({ k, cmp, fol, folPrev, all, location, state })}
     <div class="row">${weekly(cur, state, l.color)}${bestPost(cur, location)}</div>
     ${aiBlock({ title: 'Wat viel op', bullets, generated: !!summary, canGenerate: profile.role !== 'management', copyId: 'ai-list' })}
     ${profile.role !== 'management' ? `<div><a class="btn primary" href="${href('analyse', location, state)}">Naar de analyse →</a></div>` : ''}`;

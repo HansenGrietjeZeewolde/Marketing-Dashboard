@@ -19,7 +19,7 @@ async function loadData() {
   const isAdmin = profile.role === 'admin';
   const [posts, accountMonthly, summaries, events, members, audience, accounts] = await Promise.all([
     db.select('post_stats', {
-      select: 'id,location_id,platform,published_local,media_type,caption,permalink,thumbnail_url,views,reach,likes,comments,shares,saves,follows,interactions,watch_time_avg_sec',
+      select: 'id,location_id,platform,published_local,media_type,caption,permalink,thumbnail_url,views,reach,likes,comments,shares,saves,follows,interactions,watch_time_avg_sec,views_d7,reach_d7,interactions_d7',
       order: 'published_local.desc', limit: '10000'
     }),
     db.select('account_monthly', { select: '*' }),
@@ -61,7 +61,8 @@ function render() {
   const latest = withData[withData.length - 1] || thisMonth;
   const state = {
     month: months.includes(query.get('m')) ? query.get('m') : latest,
-    platform: ['samen', 'facebook', 'instagram'].includes(query.get('p')) ? query.get('p') : 'samen'
+    platform: ['samen', 'facebook', 'instagram'].includes(query.get('p')) ? query.get('p') : 'samen',
+    rank: query.get('r') === 'd7' ? 'd7' : 'totaal'
   };
   let view = ['overzicht', 'analyse', 'beheer'].includes(rawView) ? rawView : 'overzicht';
   if (view === 'analyse' && profile.role === 'management') view = 'overzicht';
@@ -81,7 +82,7 @@ function render() {
     ${header({ view, location: locationId, state, profile })}
     ${view === 'beheer' ? '' : filters({ view, location: locationId, state, months, allowed: data.allowed })}
     <main id="main" style="display:flex;flex-direction:column;gap:28px">${body}</main>
-    <footer>Bron: Meta (Facebook en Instagram). Bereik is per post opgeteld; cijfers lopen tot 48 uur achter. Tijden in Nederlandse tijd.</footer>
+    <footer>Bron: Meta (Facebook en Instagram). Kerncijfers per kalendermaand (hele account zodra Meta gekoppeld is); postcijfers groeien door en worden elke nacht bijgewerkt, tot 90 dagen terug. Cijfers lopen tot 48 uur achter. Tijden in Nederlandse tijd.</footer>
   </div>`;
   document.title = `${view === 'analyse' ? 'Analyse' : view === 'beheer' ? 'Beheer' : 'Overzicht'} · H&G marketingdashboard`;
   app.dataset.view = view;

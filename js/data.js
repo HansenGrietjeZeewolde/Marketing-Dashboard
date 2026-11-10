@@ -86,6 +86,56 @@ export function followers(accountMonthly, { location = 'alle', month, platform =
 
 // Vergelijk alleen locatie+platform-combinaties die in beide maanden data
 // hebben; anders lijkt een maand met ontbrekende exports een grote daling.
+// Kerncijfers per kalendermaand. Per locatie+platform gebruiken we de cijfers
+// van het hele account (account_monthly: alles wat in die maand bekeken is,
+// ook oudere posts) als Meta die levert; anders de optelsom van de posts die in
+// die maand geplaatst zijn. `basis` zegt welke van de twee het werd.
+const PLATFORMS = ['facebook', 'instagram'];
+const ACCOUNT_FIELD = { views: 'views', reach: 'reach_daily_sum', interactions: 'total_interactions' };
+export function monthKpis(posts, accountMonthly, { location = 'alle', month, platform = 'samen' }) {
+  const locs = LOCATIONS.filter((l) => location === 'alle' || l.id === location);
+  const plats = PLATFORMS.filter((p) => platform === 'samen' || p === platform);
+  const parts = [];
+  for (const l of locs) for (const pl of plats) {
+    const ps = posts.filter((p) => p.location_id === l.id && p.platform === pl && monthOf(p) === month);
+    const acc = accountMonthly.find((r) => r.location_id === l.id && r.platform === pl && r.month.slice(0, 7) === month);
+    const part = { location_id: l.id, platform: pl, posts: ps.length, src: {} };
+    for (const [m, f] of Object.entries(ACCOUNT_FIELD)) {
+      const v = acc ? acc[f] : null;
+      if (v !== null && v !== undefined) { part[m] = Number(v); part.src[m] = 'account'; }
+      else { part[m] = sum(ps, m); part.src[m] = 'posts'; }
+    }
+    part.hasData = ps.length > 0 || Object.values(part.src).includes('account');
+    parts.push(part);
+  }
+  return kpiSum(parts.filter((p) => p.hasData));
+}
+function kpiSum(parts) {
+  const views = sum(parts, 'views'), reach = sum(parts, 'reach'), interactions = sum(parts, 'interactions');
+  const srcs = parts.flatMap((p) => Object.values(p.src));
+  const basis = !srcs.length ? 'posts' : srcs.every((s) => s === 'account') ? 'account' : srcs.every((s) => s === 'posts') ? 'posts' : 'mixed';
+  const byLocation = (metric) => {
+    const total = sum(parts, metric);
+    return LOCATIONS.map((l) => {
+      const v = sum(parts.filter((p) => p.location_id === l.id), metric);
+      return { ...l, value: v, share: total ? v / total : 0 };
+    });
+  };
+  return { parts, keys: parts.map((p) => `${p.location_id}|${p.platform}`), posts: sum(parts, 'posts'),
+    views, reach, interactions, er: reach ? interactions / reach : null, basis, byLocation };
+}
+// Vergelijk twee maanden alleen over de accounts die in beide maanden cijfers hebben.
+export function comparableKpis(cur, prev) {
+  const both = cur.keys.filter((k) => prev.keys.includes(k));
+  const pick = (k) => k.parts.filter((p) => both.includes(`${p.location_id}|${p.platform}`));
+  return { c: kpiSum(pick(cur)), p: kpiSum(pick(prev)), partial: both.length > 0 && both.length < cur.keys.length, any: both.length > 0 };
+}
+export const BASIS_LABEL = {
+  account: 'Hele account in deze kalendermaand',
+  posts: 'Opgeteld over de posts van deze maand',
+  mixed: 'Deels hele account, deels opgeteld per post'
+};
+
 export function comparable(cur, prev) {
   const key = (p) => `${p.location_id}|${p.platform}`;
   const both = new Set(cur.map(key).filter((k) => prev.some((p) => key(p) === k)));
@@ -134,8 +184,10 @@ export function weeklyReach(posts, month) {
 
 // ---------- posts ----------
 export const byReach = (a, b) => (b.reach || 0) - (a.reach || 0) || (b.interactions || 0) - (a.interactions || 0);
-export function topAndBottom(posts, n = 3) {
-  const sorted = posts.filter((p) => p.reach !== null).sort(byReach);
+const byReachD7 = (a, b) => (b.reach_d7 || 0) - (a.reach_d7 || 0) || (b.interactions_d7 || 0) - (a.interactions_d7 || 0);
+export const hasD7 = (p) => p.reach_d7 !== null && p.reach_d7 !== undefined;
+export function topAndBottom(posts, n = 3, mode = 'totaal') {
+  const sorted = mode === 'd7' ? posts.filter(hasD7).sort(byReachD7) : posts.filter((p) => p.reach !== null).sort(byReach);
   const top = sorted.slice(0, n);
   const bottom = sorted.slice(-n).reverse().filter((p) => !top.includes(p));
   return { top, bottom };

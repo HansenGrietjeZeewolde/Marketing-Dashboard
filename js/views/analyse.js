@@ -1,15 +1,28 @@
 // Scherm 2 — analyse voor marketing
-import { LOCATIONS, loc, selectPosts, totals, followers, topAndBottom, byType, bySlot, weeklyReach, prevMonth, monthName, dayLabel, timeLabel, TYPE_LABEL, PLATFORM_LABEL, autoInsights } from '../data.js';
+import { LOCATIONS, loc, selectPosts, totals, followers, topAndBottom, hasD7, byType, bySlot, weeklyReach, prevMonth, monthName, dayLabel, timeLabel, TYPE_LABEL, PLATFORM_LABEL, autoInsights } from '../data.js';
 import { esc, nl, pctTxt, short, href, postItem, aiBlock, singleBar, emptyMonth } from '../ui.js';
 
-function topLists(rows, showLoc) {
-  const { top, bottom } = topAndBottom(rows, 3);
+function topLists(rows, showLoc, location, state) {
+  const d7 = state.rank === 'd7';
+  const withD7 = rows.filter(hasD7).length;
+  const { top, bottom } = topAndBottom(rows, 3, d7 ? 'd7' : 'totaal');
   const list = (items, low) => items.length
-    ? `<ol class="posts">${items.map((p, i) => postItem(p, i + 1, low, showLoc)).join('')}</ol>`
-    : '<p class="empty">Te weinig posts om te vergelijken.</p>';
-  return `<section class="row">
+    ? `<ol class="posts">${items.map((p, i) => postItem(p, i + 1, low, showLoc, d7)).join('')}</ol>`
+    : `<p class="empty">${d7 ? `Te weinig posts met een stand na 7 dagen (${withD7}) om ook een onderkant te tonen.` : 'Te weinig posts om te vergelijken.'}</p>`;
+  const opt = (r, label, disabled) => disabled
+    ? `<span aria-disabled="true" title="Nog geen stand na 7 dagen beschikbaar">${label}</span>`
+    : `<a href="${href('analyse', location, { ...state, rank: r }, { r })}" ${(state.rank || 'totaal') === r ? 'aria-current="true"' : ''}>${label}</a>`;
+  const note = d7
+    ? `Gerangschikt op bereik 7 dagen na plaatsen, zodat oude en nieuwe posts eerlijk vergeleken worden. ${withD7} van de ${rows.length} posts hebben die stand${withD7 < rows.length ? '; de rest is jonger dan 7 dagen of was er nog niet toen de dagelijkse meting begon' : ''}.`
+    : 'Gerangschikt op het bereik tot nu toe. Oudere posts hebben langer de tijd gehad; kies “Na 7 dagen” voor een eerlijke vergelijking.';
+  return `<section style="display:flex;flex-direction:column;gap:10px">
+    <div class="head"><h2>Beste en slechtste posts</h2>
+      <div class="seg" role="group" aria-label="Rangschikken op">${opt('totaal', 'Tot nu toe', false)}${opt('d7', 'Na 7 dagen', !withD7)}</div></div>
+    <p class="small muted">${esc(note)}</p>
+    <div class="row">
     <div class="card" style="flex:1 1 520px"><h2>Top 3 beste posts</h2>${list(top, false)}</div>
     <div class="card" style="flex:1 1 520px"><h2>Top 3 slechtste posts</h2>${list(bottom, true)}</div>
+    </div>
   </section>`;
 }
 
@@ -100,12 +113,12 @@ function allPosts(rows, location) {
   const sorted = [...rows].sort((a, b) => a.published_local.localeCompare(b.published_local));
   return `<section class="card"><h2>Alle posts van de maand</h2>
     <div class="scroll"><table>
-      <thead><tr><th>Datum</th><th>Tijd</th>${location === 'alle' ? '<th>Locatie</th>' : ''}<th>Platform</th><th>Soort</th><th>Post</th><th>Bereik</th><th>Weergaven</th><th>Likes</th><th>Reacties</th><th>Gedeeld</th><th>Opgeslagen</th></tr></thead>
+      <thead><tr><th>Datum</th><th>Tijd</th>${location === 'alle' ? '<th>Locatie</th>' : ''}<th>Platform</th><th>Soort</th><th>Post</th><th>Bereik</th><th>Bereik na 7 dagen</th><th>Weergaven</th><th>Likes</th><th>Reacties</th><th>Gedeeld</th><th>Opgeslagen</th></tr></thead>
       <tbody>${sorted.map((p) => `<tr><td>${dayLabel(p)}</td><td>${timeLabel(p)}</td>${location === 'alle' ? `<td>${esc(loc(p.location_id).short)}</td>` : ''}<td>${PLATFORM_LABEL[p.platform]}</td><td>${TYPE_LABEL[p.media_type] || ''}</td>
         <td class="cap">${p.permalink ? `<a href="${esc(p.permalink)}" target="_blank" rel="noopener">${esc(short(p.caption, 60))}</a>` : esc(short(p.caption, 60))}</td>
-        <td><b>${nl(p.reach)}</b></td><td>${nl(p.views)}</td><td>${nl(p.likes)}</td><td>${nl(p.comments)}</td><td>${nl(p.shares)}</td><td>${nl(p.saves)}</td></tr>`).join('')}</tbody>
+        <td><b>${nl(p.reach)}</b></td><td>${nl(p.reach_d7)}</td><td>${nl(p.views)}</td><td>${nl(p.likes)}</td><td>${nl(p.comments)}</td><td>${nl(p.shares)}</td><td>${nl(p.saves)}</td></tr>`).join('')}</tbody>
     </table></div>
-    <p class="tiny muted">Tijden in Nederlandse tijd. Facebook levert geen “opgeslagen”; dat staat daar op —.</p></section>`;
+    <p class="tiny muted">Tijden in Nederlandse tijd. Facebook levert geen “opgeslagen”; dat staat daar op —. “Bereik na 7 dagen” is leeg voor posts die jonger zijn dan 7 dagen of van vóór de dagelijkse meting.</p></section>`;
 }
 
 function eventsBlock(data, sel, profile) {
@@ -144,14 +157,14 @@ export function renderAnalyse(ctx) {
 
   const title = l
     ? `<div class="head"><div class="loc-title"><span class="dot" style="width:18px;height:18px;background:${l.color}" aria-hidden="true"></span>
-        <div><h2 class="h-loc">${esc(l.name)}</h2><p class="small muted">${state.platform === 'samen' ? 'Facebook en Instagram' : PLATFORM_LABEL[state.platform]} · ${monthName(state.month)} · ${cur.length} posts · gerangschikt op bereik</p></div></div>
+        <div><h2 class="h-loc">${esc(l.name)}</h2><p class="small muted">${state.platform === 'samen' ? 'Facebook en Instagram' : PLATFORM_LABEL[state.platform]} · ${monthName(state.month)} · ${cur.length} posts</p></div></div>
         <a class="linkbtn" href="${href('overzicht', location, state)}">← Overzicht ${esc(l.short)}</a></div>`
-    : `<p class="small muted">Alle locaties · ${state.platform === 'samen' ? 'Facebook en Instagram' : PLATFORM_LABEL[state.platform]} · ${monthName(state.month)} · ${cur.length} posts · gerangschikt op bereik</p>`;
+    : `<p class="small muted">Alle locaties · ${state.platform === 'samen' ? 'Facebook en Instagram' : PLATFORM_LABEL[state.platform]} · ${monthName(state.month)} · ${cur.length} posts</p>`;
 
   if (!cur.length) return `${title}${emptyMonth({ month: state.month, platform: state.platform, anyData: data.posts.length > 0 })}${eventsBlock(data, sel, profile)}`;
 
   return `${title}
-    ${topLists(cur, location === 'alle')}
+    ${topLists(cur, location === 'alle', location, state)}
     ${location === 'alle' ? '<p class="small muted" style="margin-top:-14px">Op bereik wint Hans &amp; Grietje bijna altijd. Kies een locatie bovenin voor een eerlijke vergelijking.</p>' : ''}
     <div class="row">${typeBlock(cur, location)}${location === 'alle' ? '' : slotBlock(cur, location)}</div>
     ${weeklyMultiples(cur, state, location)}

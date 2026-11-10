@@ -8,7 +8,8 @@ export const pctTxt = (x, d = 0) => (x === null || x === undefined) ? '—' : `$
 export const short = (s, n = 70) => { const a = Array.from(String(s || '').replace(/\s+/g, ' ').trim()); return a.length > n ? a.slice(0, n).join('') + '…' : a.join(''); };
 
 export function href(view, location, state, extra = {}) {
-  const q = new URLSearchParams({ m: state.month, p: state.platform, ...extra });
+  const q = new URLSearchParams({ m: state.month, p: state.platform, ...(state.rank === 'd7' && view === 'analyse' ? { r: 'd7' } : {}), ...extra });
+  if (q.get('r') === 'totaal') q.delete('r');
   return `#/${view}/${location}?${q}`;
 }
 
@@ -84,11 +85,11 @@ export function filters({ view, location, state, months, allowed }) {
   </div>`;
 }
 
-export function postItem(p, rank, low, showLoc) {
+export function postItem(p, rank, low, showLoc, d7 = false) {
   const l = loc(p.location_id);
   const img = p.thumbnail_url ? `<img class="thumb" src="${esc(p.thumbnail_url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<div class="thumb" aria-hidden="true"></div>';
   const nums = [
-    `<b>${nl(p.reach)}</b> bereik`, `${nl(p.views)} weergaven`, `${nl(p.likes)} likes`,
+    ...(d7 ? [`<b>${nl(p.reach_d7)}</b> bereik na 7 dagen`, `${nl(p.views_d7)} weergaven na 7 dagen`, `nu ${nl(p.reach)} bereik`] : [`<b>${nl(p.reach)}</b> bereik`, `${nl(p.views)} weergaven`]), `${nl(p.likes)} likes`,
     `${nl(p.comments)} reacties`, `${nl(p.shares)} keer gedeeld`, ...(p.saves !== null && p.saves !== undefined ? [`${nl(p.saves)} keer opgeslagen`] : [])
   ].join(' · ');
   const cap = esc(short(p.caption, 90)) || '<span class="muted">(geen tekst)</span>';
