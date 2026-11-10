@@ -66,12 +66,15 @@ function locationCards(data, state) {
       ${singleBar(s, l.color, `${Math.round(s * 100)} procent van het totale bereik`)}</div>`;
     const link = `<a class="${hero ? 'pill' : 'linkbtn'}" href="${href('overzicht', l.id, state)}" ${hero ? 'style="border-color:var(--navy);color:var(--navy)"' : ''}>Bekijk ${esc(l.short)} →</a>`;
     if (hero) {
+      // Bovenste rij: naam, aandeel en vergelijking; daaronder de cijfers over de volle breedte.
       return `<article class="card loc-hero">
-        <div style="flex:1 1 260px;display:flex;flex-direction:column;gap:10px">
-          <div class="loc-title"><span class="dot" style="width:16px;height:16px;background:${l.color}" aria-hidden="true"></span><h3 class="name">${esc(l.name)}</h3></div>
-          <p class="small muted">${esc(l.sub)} · ${t.posts} posts</p>${bar}</div>
-        <div style="flex:2 1 420px">${stats}</div>
-        <div style="flex:0 1 auto;display:flex;flex-direction:column;align-items:flex-end;gap:10px">${badges}${link}</div>
+        <div class="loc-hero-top">
+          <div style="flex:1 1 280px;display:flex;flex-direction:column;gap:10px;max-width:420px">
+            <div class="loc-title"><span class="dot" style="width:16px;height:16px;background:${l.color}" aria-hidden="true"></span><h3 class="name">${esc(l.name)}</h3></div>
+            <p class="small muted">${esc(l.sub)} · ${t.posts} posts</p>${bar}</div>
+          <div style="flex:0 1 auto;display:flex;flex-direction:column;align-items:flex-end;gap:10px">${badges}${link}</div>
+        </div>
+        ${stats}
       </article>`;
     }
     return `<article class="card" style="flex:1 1 260px">
