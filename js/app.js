@@ -22,7 +22,7 @@ async function loadData() {
   const [posts, accountMonthly, summaries, events, members, audience, accounts] = await Promise.all([
     db.select('post_stats', {
       select: 'id,location_id,platform,published_local,media_type,caption,permalink,thumbnail_url,views,reach,likes,comments,shares,saves,follows,interactions,watch_time_avg_sec,views_d7,reach_d7,interactions_d7',
-      order: 'published_local.desc', limit: '10000'
+      order: 'published_local.desc,id.desc', limit: '20000'
     }),
     db.select('account_monthly', { select: '*' }),
     db.select('ai_summaries', { select: 'month,location_key,screen,bullets,created_at' }),

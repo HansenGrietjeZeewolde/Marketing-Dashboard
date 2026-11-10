@@ -124,9 +124,18 @@ async function call(url, options = {}) {
 
 // db.select('post_stats', { select: '*', order: 'published_at.desc' })
 export const db = {
-  select(table, params = {}) {
-    const q = new URLSearchParams(params);
-    return call(`${SUPABASE_URL}/rest/v1/${table}?${q}`);
+  // Supabase geeft maximaal 1000 rijen per verzoek; haal daarom in delen op tot alles binnen is.
+  async select(table, params = {}) {
+    const PAGE = 1000;
+    const max = Number(params.limit) || Infinity;
+    const rows = [];
+    for (let offset = 0; offset < max; offset += PAGE) {
+      const q = new URLSearchParams({ ...params, limit: String(Math.min(PAGE, max - offset)), offset: String(offset) });
+      const page = await call(`${SUPABASE_URL}/rest/v1/${table}?${q}`);
+      rows.push(...page);
+      if (page.length < Math.min(PAGE, max - offset)) break;
+    }
+    return rows;
   },
   insert(table, row) {
     return call(`${SUPABASE_URL}/rest/v1/${table}`, {
