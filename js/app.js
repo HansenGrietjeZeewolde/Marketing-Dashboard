@@ -216,5 +216,14 @@ app.addEventListener('change', async (e) => {
   }
 });
 
+// Afbeeldingen van Meta verlopen na een paar dagen; een kapot plaatje wordt een leeg vlak.
+app.addEventListener('error', (e) => {
+  const img = e.target;
+  if (img.tagName !== 'IMG' || img.dataset.broken) return;
+  img.dataset.broken = '1';
+  img.removeAttribute('src');
+  img.style.visibility = 'hidden';
+}, true);
+
 window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
 start();
