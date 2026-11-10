@@ -252,7 +252,12 @@ async function syncInstagram(acc: any, since: Date, today: string, warn: string[
 }
 
 // ---------- Ingang ----------
+// Eén aanroep per account: elk account krijgt zo een eigen functie-aanroep
+// met eigen tijd- en rekenlimiet. De hoofdaanroep verdeelt alleen het werk.
+const INTERNAL = "x-sync-internal";
+
 async function allowed(req: Request) {
+  if (req.headers.get(INTERNAL) === SERVICE_KEY) return "intern";
   const secret = req.headers.get("x-sync-secret");
   if (secret) {
     if (SYNC_SECRET && secret === SYNC_SECRET) return "cron";
@@ -267,6 +272,22 @@ async function allowed(req: Request) {
   return p?.role === "admin" ? `beheerder ${data.user.email}` : null;
 }
 
+async function syncOne(acc: any, days: number) {
+  const since = addDays(new Date(), -days);
+  const today = isoDay(new Date());
+  const warn: string[] = [];
+  const base = { account: acc.account_id, location: acc.location_id, platform: acc.platform };
+  try {
+    const posts = acc.platform === "facebook"
+      ? await syncFacebook(acc, since, today, warn)
+      : await syncInstagram(acc, since, today, warn);
+    await db.from("social_accounts").update({ last_synced_at: new Date().toISOString() }).eq("id", acc.account_id);
+    return { ...base, posts, warnings: warn.slice(0, 20) };
+  } catch (e) {
+    return { ...base, error: (e as Error).message, warnings: warn.slice(0, 20) };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const who = await allowed(req);
@@ -274,30 +295,37 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const days = Math.min(Math.max(Number(body.days) || 35, 1), 730);
-  const since = addDays(new Date(), -days);
-  const today = isoDay(new Date());
-
-  const { data: run } = await db.from("sync_runs").insert({ triggered_by: who }).select("id").single();
   const { data: accounts, error } = await db.rpc("meta_accounts_for_sync");
   if (error) return json({ error: error.message }, 500);
 
-  const details: any[] = [];
-  for (const acc of accounts ?? []) {
-    const warn: string[] = [];
-    try {
-      const posts = acc.platform === "facebook"
-        ? await syncFacebook(acc, since, today, warn)
-        : await syncInstagram(acc, since, today, warn);
-      await db.from("social_accounts").update({ last_synced_at: new Date().toISOString() }).eq("id", acc.account_id);
-      details.push({ account: acc.account_id, location: acc.location_id, platform: acc.platform, posts, warnings: warn.slice(0, 20) });
-    } catch (e) {
-      details.push({ account: acc.account_id, location: acc.location_id, platform: acc.platform, error: (e as Error).message, warnings: warn.slice(0, 20) });
-    }
+  // Deelopdracht: één account ophalen.
+  if (who === "intern") {
+    const acc = (accounts ?? []).find((a: any) => a.account_id === body.account_id);
+    if (!acc) return json({ error: "Onbekend account." }, 404);
+    return json(await syncOne(acc, days));
   }
-  const failed = details.filter((d) => d.error).length;
-  // Nog niets gekoppeld: geen fout, gewoon niets te doen.
+
+  // Oude rondes die nooit klaar kwamen als afgebroken markeren.
+  await db.from("sync_runs").update({ status: "error", finished_at: new Date().toISOString(),
+    details: [{ error: "Afgebroken: tijd- of rekenlimiet van de functie bereikt" }] })
+    .is("finished_at", null).lt("started_at", new Date(Date.now() - 10 * 60000).toISOString());
+
+  const { data: run } = await db.from("sync_runs").insert({ triggered_by: who }).select("id").single();
+  const details = await Promise.all((accounts ?? []).map(async (acc: any) => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/meta-sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}`, [INTERNAL]: SERVICE_KEY },
+        body: JSON.stringify({ account_id: acc.account_id, days })
+      });
+      const out = await res.json().catch(() => ({ error: `Functie gaf status ${res.status}` }));
+      return res.ok ? out : { account: acc.account_id, location: acc.location_id, platform: acc.platform, error: out.error ?? out.msg ?? `status ${res.status}` };
+    } catch (e) {
+      return { account: acc.account_id, location: acc.location_id, platform: acc.platform, error: (e as Error).message };
+    }
+  }));
+  const failed = details.filter((d: any) => d.error).length;
   const status = failed === 0 ? "ok" : failed < details.length ? "partial" : "error";
-  await db.from("sync_runs").update({ finished_at: new Date().toISOString(), status, details })
-    .eq("id", run?.id);
+  await db.from("sync_runs").update({ finished_at: new Date().toISOString(), status, details }).eq("id", run?.id);
   return json({ status, accounts: details.length, details });
 });
