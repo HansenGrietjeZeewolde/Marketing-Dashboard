@@ -86,16 +86,17 @@ const breakdown = (tv: any, key: string) =>
   tv?.breakdowns?.[0]?.results?.find((r: any) => r.dimension_values?.[0] === key)?.value ?? null;
 
 // ---------- Facebook-pagina ----------
-async function syncFacebook(acc: any, since: Date, today: string, warn: string[]) {
+// regular = gewone ronde (tot nu); anders een historische periode [since, until).
+async function syncFacebook(acc: any, since: Date, until: Date, today: string, warn: string[], regular: boolean) {
   const t = acc.access_token;
   const page = await graph(acc.external_id, t, { fields: "followers_count,name" });
 
   // Dagcijfers (Meta: maximaal 90 dagen per verzoek). end_time valt op de
   // ochtend ná de dag waar het getal bij hoort.
-  const dailyStart = new Date(Math.max(since.getTime(), Date.now() - 89 * 86400000));
+  const dailyStart = regular ? new Date(Math.max(since.getTime(), Date.now() - 89 * 86400000)) : since;
   const daily = await graph(`${acc.external_id}/insights`, t, {
     metric: "page_daily_follows_unique,page_daily_unfollows_unique,page_media_view,page_total_media_view_unique,page_post_engagements",
-    period: "day", since: unix(dailyStart), until: unix(new Date())
+    period: "day", since: unix(dailyStart), until: unix(until)
   }).catch((e) => { warn.push(`dagcijfers: ${e.message}`); return { data: [] }; });
   const days: Record<string, any> = {};
   const map: Record<string, string> = {
@@ -110,22 +111,27 @@ async function syncFacebook(acc: any, since: Date, today: string, warn: string[]
       days[day][map[m.name]] = num(v.value);
     }
   }
-  days[today] ??= { account_id: acc.account_id, location_id: acc.location_id, platform: "facebook", day: today,
-    follows: null, unfollows: null, views: null, reach: null, total_interactions: null, followers_total: null };
-  days[today].followers_total = page.followers_count ?? null;
+  if (regular) {
+    days[today] ??= { account_id: acc.account_id, location_id: acc.location_id, platform: "facebook", day: today,
+      follows: null, unfollows: null, views: null, reach: null, total_interactions: null, followers_total: null };
+    days[today].followers_total = page.followers_count ?? null;
+  }
   // stand van vandaag apart bewaren zodat oudere dagen hun volgersstand houden
   const rows = Object.values(days);
-  const { error: dErr } = await db.from("account_daily").upsert(rows.filter((r: any) => r.day !== today).map((r: any) => {
+  const older = rows.filter((r: any) => r.day !== today).map((r: any) => {
     const { followers_total: _f, ...rest } = r; return rest;
-  }), { onConflict: "account_id,day" });
-  if (dErr) throw dErr;
-  await db.from("account_daily").upsert(days[today], { onConflict: "account_id,day" });
+  });
+  if (older.length) {
+    const { error: dErr } = await db.from("account_daily").upsert(older, { onConflict: "account_id,day" });
+    if (dErr) throw dErr;
+  }
+  if (regular) await db.from("account_daily").upsert(days[today], { onConflict: "account_id,day" });
 
   // Posts
   let n = 0;
   for await (const p of paged(`${acc.external_id}/posts`, t, {
     fields: "id,created_time,message,permalink_url,full_picture,attachments{media_type,type},shares,comments.summary(true).limit(0),reactions.summary(true).limit(0)",
-    since: unix(since), limit: 50
+    since: unix(since), until: unix(until), limit: 50
   }, () => false)) {
     const att = p.attachments?.data?.[0];
     const link = p.permalink_url ?? "";
@@ -168,7 +174,7 @@ async function syncFacebook(acc: any, since: Date, today: string, warn: string[]
 }
 
 // ---------- Instagram ----------
-async function syncInstagram(acc: any, since: Date, today: string, warn: string[]) {
+async function syncInstagram(acc: any, since: Date, until: Date, today: string, warn: string[], regular: boolean) {
   const t = acc.access_token;
   const user = await graph(acc.external_id, t, { fields: "followers_count,username" });
   await db.from("social_accounts").update({ handle: user.username }).eq("id", acc.account_id);
@@ -186,7 +192,10 @@ async function syncInstagram(acc: any, since: Date, today: string, warn: string[
     if (day >= isoDay(addDays(new Date(today + "T00:00:00Z"), -3))) recentDays.push(day);
     else if (!haveSet.has(day)) missing.push(day);
   }
-  for (const day of [...missing.slice(-20), ...recentDays]) {
+  // Historische periode: gewoon elke dag van die periode (tot gisteren).
+  const periodDays: string[] = [];
+  if (!regular) for (let d = new Date(isoDay(since) + "T00:00:00Z"); d < until && isoDay(d) < today; d = addDays(d, 1)) periodDays.push(isoDay(d));
+  for (const day of regular ? [...missing.slice(-20), ...recentDays] : periodDays) {
     const d0 = new Date(day + "T00:00:00Z");
     const p = { period: "day", metric_type: "total_value", since: unix(d0), until: unix(addDays(d0, 1)) };
     const base = await insights(acc.external_id, t, ["views", "accounts_engaged", "total_interactions", "profile_links_taps"], p, warn);
@@ -202,7 +211,7 @@ async function syncInstagram(acc: any, since: Date, today: string, warn: string[
       unfollows: breakdown(follows.follows_and_unfollows, "NON_FOLLOWER")
     }, { onConflict: "account_id,day" });
   }
-  await db.from("account_daily").upsert({
+  if (regular) await db.from("account_daily").upsert({
     account_id: acc.account_id, location_id: acc.location_id, platform: "instagram", day: today,
     followers_total: user.followers_count ?? null
   }, { onConflict: "account_id,day" });
@@ -213,6 +222,7 @@ async function syncInstagram(acc: any, since: Date, today: string, warn: string[
     fields: "id,caption,media_type,media_product_type,permalink,timestamp,thumbnail_url,media_url,like_count,comments_count",
     limit: 50
   }, (row) => new Date(row.timestamp) < since)) {
+    if (new Date(m.timestamp) >= until) continue;   // nieuwer dan de periode: overslaan
     const media_type = m.media_product_type === "REELS" ? "reel"
       : m.media_product_type === "STORY" ? "story"
       : m.media_type === "CAROUSEL_ALBUM" ? "carousel"
@@ -242,6 +252,7 @@ async function syncInstagram(acc: any, since: Date, today: string, warn: string[
   }
 
   // Doelgroep: één keer per week (Meta: top 45, vanaf 100 volgers)
+  if (!regular) return n;
   const { data: recent } = await db.from("audience").select("captured_on")
     .eq("account_id", acc.account_id).gte("captured_on", isoDay(addDays(new Date(), -7))).limit(1);
   if (!recent?.length) {
@@ -284,21 +295,37 @@ async function allowed(req: Request) {
   return p?.role === "admin" ? `beheerder ${data.user.email}` : null;
 }
 
-async function syncOne(acc: any, days: number) {
-  const since = addDays(new Date(), -days);
+async function syncOne(acc: any, since: Date, until: Date, regular: boolean) {
   const today = isoDay(new Date());
   const warn: string[] = [];
   const base = { account: acc.account_id, location: acc.location_id, platform: acc.platform };
   try {
     const posts = acc.platform === "facebook"
-      ? await syncFacebook(acc, since, today, warn)
-      : await syncInstagram(acc, since, today, warn);
-    await db.from("social_accounts").update({ last_synced_at: new Date().toISOString() }).eq("id", acc.account_id);
+      ? await syncFacebook(acc, since, until, today, warn, regular)
+      : await syncInstagram(acc, since, until, today, warn, regular);
+    if (regular) await db.from("social_accounts").update({ last_synced_at: new Date().toISOString() }).eq("id", acc.account_id);
     return { ...base, posts, warnings: warn.slice(0, 20) };
   } catch (e) {
     return { ...base, error: (e as Error).message, warnings: warn.slice(0, 20) };
   }
 }
+
+// Eén account (of één periode van een account) in een eigen functie-aanroep laten ophalen.
+async function callOne(acc: any, payload: Record<string, unknown>) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/meta-sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}`, [INTERNAL]: SERVICE_KEY },
+      body: JSON.stringify({ account_id: acc.account_id, ...payload })
+    });
+    const out = await res.json().catch(() => ({ error: `Functie gaf status ${res.status}` }));
+    return res.ok ? out : { account: acc.account_id, location: acc.location_id, platform: acc.platform, error: out.error ?? out.msg ?? `status ${res.status}` };
+  } catch (e) {
+    return { account: acc.account_id, location: acc.location_id, platform: acc.platform, error: (e as Error).message };
+  }
+}
+
+const RATE_LIMIT = /limit|too many|\(#4\)|\(#17\)|\(#32\)|\(#613\)|\(#80001\)|\(#80002\)/i;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -310,11 +337,30 @@ Deno.serve(async (req) => {
   const { data: accounts, error } = await db.rpc("meta_accounts_for_sync");
   if (error) return json({ error: error.message }, 500);
 
-  // Deelopdracht: één account ophalen.
+  // Deelopdracht: één account, gewone ronde of een historische periode.
   if (who === "intern") {
     const acc = (accounts ?? []).find((a: any) => a.account_id === body.account_id);
     if (!acc) return json({ error: "Onbekend account." }, 404);
-    return json(await syncOne(acc, days));
+    if (body.from && body.to) return json(await syncOne(acc, new Date(body.from + "T00:00:00Z"), new Date(body.to + "T00:00:00Z"), false));
+    return json(await syncOne(acc, addDays(new Date(), -days), new Date(), true));
+  }
+
+  // Wachtrij voor de historie: elke minuut een paar maanden per account.
+  if (body.mode === "backfill-step") {
+    const { data: jobs, error: cErr } = await db.rpc("backfill_claim", { n: Number(body.n) || 2 });
+    if (cErr) return json({ error: cErr.message }, 500);
+    const results = await Promise.all((jobs ?? []).map(async (job: any) => {
+      const acc = (accounts ?? []).find((a: any) => a.account_id === job.account_id);
+      const out = acc ? await callOne(acc, { from: job.period_start, to: job.period_end }) : { error: "Account niet (meer) gekoppeld" };
+      const retry = out.error && RATE_LIMIT.test(out.error) && job.attempts < 6;
+      await db.from("backfill_jobs").update({
+        status: out.error ? (retry ? "pending" : "error") : "done",
+        posts: out.posts ?? null, last_error: out.error ?? (out.warnings?.length ? out.warnings.join(" | ").slice(0, 500) : null),
+        updated_at: new Date().toISOString()
+      }).eq("id", job.id);
+      return { job: job.id, period: job.period_start, ...out };
+    }));
+    return json({ jobs: results.length, results });
   }
 
   // Oude rondes die nooit klaar kwamen als afgebroken markeren.
@@ -323,19 +369,7 @@ Deno.serve(async (req) => {
     .is("finished_at", null).lt("started_at", new Date(Date.now() - 10 * 60000).toISOString());
 
   const { data: run } = await db.from("sync_runs").insert({ triggered_by: who }).select("id").single();
-  const details = await Promise.all((accounts ?? []).map(async (acc: any) => {
-    try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/meta-sync`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}`, [INTERNAL]: SERVICE_KEY },
-        body: JSON.stringify({ account_id: acc.account_id, days })
-      });
-      const out = await res.json().catch(() => ({ error: `Functie gaf status ${res.status}` }));
-      return res.ok ? out : { account: acc.account_id, location: acc.location_id, platform: acc.platform, error: out.error ?? out.msg ?? `status ${res.status}` };
-    } catch (e) {
-      return { account: acc.account_id, location: acc.location_id, platform: acc.platform, error: (e as Error).message };
-    }
-  }));
+  const details = await Promise.all((accounts ?? []).map((acc: any) => callOne(acc, { days })));
   const failed = details.filter((d: any) => d.error).length;
   const status = failed === 0 ? "ok" : failed < details.length ? "partial" : "error";
   await db.from("sync_runs").update({ finished_at: new Date().toISOString(), status, details }).eq("id", run?.id);
