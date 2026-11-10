@@ -173,15 +173,27 @@ async function syncInstagram(acc: any, since: Date, today: string, warn: string[
   const user = await graph(acc.external_id, t, { fields: "followers_count,username" });
   await db.from("social_accounts").update({ handle: user.username }).eq("id", acc.account_id);
 
-  // Dagcijfers: de laatste 3 dagen opnieuw (Meta loopt tot 48 uur achter).
-  for (let i = 3; i >= 1; i--) {
-    const d0 = addDays(new Date(today + "T00:00:00Z"), -i);
+  // Dagcijfers: Instagram levert ze per dag. Elke ronde de laatste 3 dagen opnieuw
+  // (Meta loopt tot 48 uur achter) plus maximaal 20 nog ontbrekende dagen binnen
+  // het venster, zodat de geschiedenis in een paar rondes vanzelf compleet wordt.
+  const windowStart = isoDay(new Date(Math.max(since.getTime(), Date.now() - 89 * 86400000)));
+  const { data: have } = await db.from("account_daily").select("day")
+    .eq("account_id", acc.account_id).gte("day", windowStart).not("views", "is", null);
+  const haveSet = new Set((have ?? []).map((r: any) => r.day));
+  const recentDays: string[] = [], missing: string[] = [];
+  for (let d = new Date(windowStart + "T00:00:00Z"); isoDay(d) < today; d = addDays(d, 1)) {
+    const day = isoDay(d);
+    if (day >= isoDay(addDays(new Date(today + "T00:00:00Z"), -3))) recentDays.push(day);
+    else if (!haveSet.has(day)) missing.push(day);
+  }
+  for (const day of [...missing.slice(-20), ...recentDays]) {
+    const d0 = new Date(day + "T00:00:00Z");
     const p = { period: "day", metric_type: "total_value", since: unix(d0), until: unix(addDays(d0, 1)) };
     const base = await insights(acc.external_id, t, ["views", "accounts_engaged", "total_interactions", "profile_links_taps"], p, warn);
     const reach = await insights(acc.external_id, t, ["reach"], { ...p, breakdown: "follow_type" }, warn);
     const follows = await insights(acc.external_id, t, ["follows_and_unfollows"], { ...p, breakdown: "follow_type" }, warn);
     await db.from("account_daily").upsert({
-      account_id: acc.account_id, location_id: acc.location_id, platform: "instagram", day: isoDay(d0),
+      account_id: acc.account_id, location_id: acc.location_id, platform: "instagram", day,
       views: num(base.views), accounts_engaged: num(base.accounts_engaged),
       total_interactions: num(base.total_interactions), profile_link_taps: num(base.profile_links_taps),
       reach: num(reach.reach), reach_followers: breakdown(reach.reach, "FOLLOWER"),

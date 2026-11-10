@@ -71,12 +71,14 @@ export function followers(accountMonthly, { location = 'alle', month, platform =
     (location === 'alle' || r.location_id === location) && r.month.slice(0, 7) === month &&
     (platform === 'samen' || r.platform === platform));
   const withTotal = rows.filter((r) => r.followers_end !== null);
+  // Maandsommen (nieuwe volgers, bereik bij volgers) alleen als elke rij een complete maand is.
+  const full = rows.length > 0 && rows.every((r) => r.complete !== false);
   return {
     total: withTotal.length ? sum(withTotal, 'followers_end') : null,
-    gained: has(rows, 'follows') ? sum(rows, 'follows') : null,
-    lost: has(rows, 'unfollows') ? sum(rows, 'unfollows') : null,
-    reachFollowers: has(rows, 'reach_followers') ? sum(rows, 'reach_followers') : null,
-    reachNonFollowers: has(rows, 'reach_non_followers') ? sum(rows, 'reach_non_followers') : null,
+    gained: full && has(rows, 'follows') ? sum(rows, 'follows') : null,
+    lost: full && has(rows, 'unfollows') ? sum(rows, 'unfollows') : null,
+    reachFollowers: full && has(rows, 'reach_followers') ? sum(rows, 'reach_followers') : null,
+    reachNonFollowers: full && has(rows, 'reach_non_followers') ? sum(rows, 'reach_non_followers') : null,
     byLocation: Object.fromEntries(LOCATIONS.map((l) => {
       const r = withTotal.filter((x) => x.location_id === l.id);
       return [l.id, r.length ? sum(r, 'followers_end') : null];
@@ -98,7 +100,8 @@ export function monthKpis(posts, accountMonthly, { location = 'alle', month, pla
   const parts = [];
   for (const l of locs) for (const pl of plats) {
     const ps = posts.filter((p) => p.location_id === l.id && p.platform === pl && monthOf(p) === month);
-    const acc = accountMonthly.find((r) => r.location_id === l.id && r.platform === pl && r.month.slice(0, 7) === month);
+    // Alleen accountcijfers gebruiken als Meta de hele maand (tot nu toe) geleverd heeft.
+    const acc = accountMonthly.find((r) => r.location_id === l.id && r.platform === pl && r.month.slice(0, 7) === month && r.complete !== false);
     const part = { location_id: l.id, platform: pl, posts: ps.length, src: {} };
     for (const [m, f] of Object.entries(ACCOUNT_FIELD)) {
       const v = acc ? acc[f] : null;
