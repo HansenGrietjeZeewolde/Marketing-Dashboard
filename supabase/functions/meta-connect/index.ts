@@ -25,7 +25,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const REDIRECT_URI = `${SUPABASE_URL}/functions/v1/meta-connect`;
 const SCOPES = [
-  "pages_show_list", "pages_read_engagement", "read_insights",
+  "pages_show_list", "pages_read_engagement", "pages_read_user_content", "read_insights",
   "instagram_basic", "instagram_manage_insights", "business_management"
 ];
 
