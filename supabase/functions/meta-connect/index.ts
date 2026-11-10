@@ -9,7 +9,8 @@
 //    juiste vestiging en bewaart de paginasleutels afgeschermd.
 // 3. Terug naar het dashboard: SITE_URL/#/beheer?meta=ok
 //
-// Secrets: META_APP_ID, META_APP_SECRET, SITE_URL (optioneel META_GRAPH_VERSION)
+// Secrets: META_APP_ID, META_APP_SECRET, SITE_URL (optioneel META_GRAPH_VERSION,
+// en META_CONFIG_ID als de app 'Facebook Login for Business' gebruikt)
 // Instellen in de Meta-app: geldige OAuth-redirect-URI =
 //   https://<project>.supabase.co/functions/v1/meta-connect
 // =====================================================================
@@ -18,6 +19,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const GRAPH = Deno.env.get("META_GRAPH_VERSION") ?? "v25.0";
 const APP_ID = Deno.env.get("META_APP_ID") ?? "";
 const APP_SECRET = Deno.env.get("META_APP_SECRET") ?? "";
+const CONFIG_ID = Deno.env.get("META_CONFIG_ID") ?? "";
 const SITE_URL = (Deno.env.get("SITE_URL") ?? "").replace(/\/$/, "");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -141,7 +143,9 @@ Deno.serve(async (req) => {
     dialog.searchParams.set("client_id", APP_ID);
     dialog.searchParams.set("redirect_uri", REDIRECT_URI);
     dialog.searchParams.set("state", state);
-    dialog.searchParams.set("scope", SCOPES.join(","));
+    // Facebook Login for Business werkt met een configuratie-ID in plaats van een lijst rechten.
+    if (CONFIG_ID) dialog.searchParams.set("config_id", CONFIG_ID);
+    else dialog.searchParams.set("scope", SCOPES.join(","));
     dialog.searchParams.set("response_type", "code");
     return json({ url: dialog.toString() });
   } catch (e) {

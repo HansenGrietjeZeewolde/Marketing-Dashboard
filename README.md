@@ -48,7 +48,8 @@ Hans & Grietje. Schema, functies en nachtelijke taak staan er al in.
    Geldige OAuth-redirect-URI:
    `https://saitgqruilgryftbxhtk.supabase.co/functions/v1/meta-connect`
 4. **Geheimen in Supabase** (Edge Functions → Secrets):
-   `META_APP_ID`, `META_APP_SECRET`, `SITE_URL` (het Vercel-adres) en, voor de
+   `META_APP_ID`, `META_APP_SECRET`, `META_CONFIG_ID` (bij Facebook Login for
+   Business), `SITE_URL` (het Vercel-adres) en, voor de
    AI-samenvatting, `ANTHROPIC_API_KEY`. Optioneel `META_GRAPH_VERSION`
    (standaard `v25.0`).
 5. **Koppelen.** Log in als beheerder → Beheer → *Koppel Meta-account* → inloggen
