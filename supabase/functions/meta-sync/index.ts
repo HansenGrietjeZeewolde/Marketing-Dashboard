@@ -4,6 +4,7 @@
 // Aanroep:  POST /functions/v1/meta-sync   body: { "days": 35 }
 //   - door de nachtelijke cron (header x-sync-secret, gecontroleerd tegen Vault), of
 //   - door een beheerder via de knop in het dashboard.
+//   body { "mode": "backfill-step" } werkt de wachtrij voor de historie af.
 // Per gekoppeld account:
 //   Facebook-pagina  volgers, dagcijfers (weergaven, kijkers, volgers erbij/eraf,
 //                    betrokkenheid) en per post: weergaven, kijkers, reacties,
@@ -230,7 +231,7 @@ async function syncInstagram(acc: any, since: Date, until: Date, today: string, 
     const { data: post, error } = await db.from("posts").upsert({
       account_id: acc.account_id, location_id: acc.location_id, platform: "instagram",
       external_id: m.id, published_at: m.timestamp, media_type, caption: m.caption ?? null,
-      permalink: m.permalink ?? null, thumbnail_url: m.thumbnail_url ?? (m.media_type === "IMAGE" ? m.media_url : null) ?? null,
+      permalink: m.permalink ?? null, thumbnail_url: m.thumbnail_url ?? (m.media_type === "IMAGE" || m.media_type === "CAROUSEL_ALBUM" ? m.media_url : null) ?? null,
       source: "api"
     }, { onConflict: "account_id,external_id" }).select("id").single();
     if (error) throw error;

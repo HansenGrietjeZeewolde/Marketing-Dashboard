@@ -90,22 +90,34 @@ function weeklyMultiples(rows, state, location) {
 
 function audienceBlock(data, sel) {
   const fol = followers(data.accountMonthly, sel);
+  // Meta levert demografie alleen voor Instagram, als stand van nu (niet per maand).
   const rows = data.audience.filter((a) => (sel.location === 'alle' || a.location_id === sel.location) && a.kind === 'followers');
   const latest = rows.reduce((m, a) => (a.captured_on > m ? a.captured_on : m), '');
-  const top = (dim, n) => {
+  const sumDim = (dim) => rows.filter((a) => a.captured_on === latest && a.dimension === dim).reduce((x, a) => x + a.count, 0);
+  // Meta geeft alleen de top 45 steden; deel daarom door alle volgers (som van de leeftijden).
+  const allFollowers = sumDim('age');
+  const share = (dim, n) => {
     const agg = {};
     rows.filter((a) => a.captured_on === latest && a.dimension === dim).forEach((a) => { agg[a.value] = (agg[a.value] || 0) + a.count; });
-    return Object.entries(agg).sort((a, b) => b[1] - a[1]).slice(0, n);
+    const total = dim === 'city' && allFollowers ? allFollowers : Object.values(agg).reduce((x, y) => x + y, 0);
+    return Object.entries(agg).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => [k, total ? v / total : 0]);
   };
   const reachSplit = fol.reachFollowers !== null && fol.reachNonFollowers !== null
     ? (() => { const t = fol.reachFollowers + fol.reachNonFollowers; const s = t ? fol.reachFollowers / t : 0;
-      return `<p class="small">Bereik bij volgers: <b>${pctTxt(s)}</b> · bij niet-volgers: <b>${pctTxt(1 - s)}</b> (Instagram)</p>${singleBar(s, '#1F3A7A', `${Math.round(s * 100)} procent van het bereik is bij volgers`)}`; })()
-    : '<p class="small muted">Bereik bij volgers en niet-volgers komt binnen via de Meta-koppeling (Instagram).</p>';
-  const cities = top('city', 5), ages = top('age', 6);
-  const list = (items) => `<ol style="margin:0;padding-left:20px">${items.map(([k, v]) => `<li>${esc(k)} <span class="muted">· ${nl(v)}</span></li>`).join('')}</ol>`;
+      return `<p class="small">Bereik bij volgers: <b>${pctTxt(s)}</b> · bij niet-volgers: <b>${pctTxt(1 - s)}</b> (Instagram, ${monthName(sel.month)})</p>${singleBar(s, '#1F3A7A', `${Math.round(s * 100)} procent van het bereik is bij volgers`)}`; })()
+    : '<p class="small muted">Bereik bij volgers en niet-volgers: voor deze maand levert Meta dit (nog) niet.</p>';
+  const GENDER = { F: 'Vrouw', M: 'Man', U: 'Onbekend' };
+  const city = (v) => String(v).replace(/, .*$/, '').replace('The Hague', 'Den Haag');
+  const list = (items, label = (k) => k) => `<ol style="margin:0;padding-left:20px">${items.map(([k, v]) => `<li>${esc(label(k))} <span class="muted">· ${pctTxt(v)}</span></li>`).join('')}</ol>`;
+  const who = sel.location === 'alle' ? 'alle locaties samen' : loc(sel.location).short;
+  const dateTxt = latest ? new Date(latest + 'T12:00:00').toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' }) : '';
   return `<div class="card"><h2>Doelgroep</h2>${reachSplit}
-    ${latest ? `<div class="row" style="gap:12px"><div><p class="small" style="font-weight:800">Top steden</p>${list(cities)}</div><div><p class="small" style="font-weight:800">Leeftijd</p>${list(ages)}</div></div>`
-      : '<p class="small muted">Leeftijd, geslacht en woonplaats van volgers komen wekelijks binnen via de Meta-koppeling (vanaf 100 volgers).</p>'}
+    ${latest ? `<p class="tiny muted">Volgers op Instagram van ${esc(who)}, stand ${esc(dateTxt)}. Facebook levert geen demografie meer; dit is de huidige stand, niet per maand.</p>
+      <div class="row" style="gap:16px">
+        <div style="flex:1 1 150px"><p class="small" style="font-weight:800">Woonplaats</p>${list(share('city', 5), city)}</div>
+        <div style="flex:1 1 110px"><p class="small" style="font-weight:800">Leeftijd</p>${list(share('age', 4))}</div>
+        <div style="flex:1 1 110px"><p class="small" style="font-weight:800">Geslacht</p>${list(share('gender', 3), (k) => GENDER[k] || k)}</div></div>`
+      : '<p class="small muted">Leeftijd, geslacht en woonplaats van volgers komen wekelijks binnen via de Meta-koppeling (alleen Instagram, vanaf 100 volgers).</p>'}
   </div>`;
 }
 
