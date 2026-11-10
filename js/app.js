@@ -3,7 +3,9 @@
 // Adressen:  #/overzicht/alle?m=2026-07&p=samen   #/analyse/hg   #/beheer
 // =====================================================================
 import { auth, db, invoke } from './api.js';
-import { availableMonths, prevMonth, nextMonth } from './data.js';
+import { availableMonths, nextMonth } from './data.js';
+
+const FIRST_MONTH = '2025-01';   // vanaf hier is de historie via Meta opgehaald
 import { header, filters } from './ui.js';
 import { renderLogin } from './views/login.js';
 import { renderOverzicht } from './views/overzicht.js';
@@ -49,12 +51,11 @@ function parseRoute() {
 function render() {
   if (!profile) return;
   const { view: rawView, place, query } = parseRoute();
-  // Bladeren kan van 12 maanden terug (of de eerste maand met data) tot en met
+  // Bladeren kan vanaf januari 2025 (of eerder, als er eerder data is) tot en met
   // de huidige maand, ook als er voor een maand nog niets binnen is.
   const withData = availableMonths(data.posts);
   const thisMonth = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam', year: 'numeric', month: '2-digit' }).format(new Date()).slice(0, 7);
-  let first = thisMonth;
-  for (let i = 0; i < 11; i++) first = prevMonth(first);
+  let first = FIRST_MONTH;
   if (withData[0] && withData[0] < first) first = withData[0];
   const months = [];
   for (let m = first; m <= thisMonth; m = nextMonth(m)) months.push(m);
